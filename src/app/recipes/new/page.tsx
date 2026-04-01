@@ -22,23 +22,27 @@ type ParsedRecipe = {
 };
 
 type Step = "input" | "loading" | "preview" | "saving";
+type InputMode = "url" | "manual";
 
 export default function NewRecipePage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("input");
+  const [inputMode, setInputMode] = useState<InputMode>("url");
   const [url, setUrl] = useState("");
+  const [manualText, setManualText] = useState("");
   const [parsed, setParsed] = useState<ParsedRecipe | null>(null);
   const [error, setError] = useState("");
 
   const handleParse = async () => {
-    if (!url.trim()) {
+    if (inputMode === "url" && !url.trim()) {
       setError("URLを入力してください");
       return;
     }
-    try {
-      new URL(url);
-    } catch {
-      setError("正しいURLを入力してください");
+    if (inputMode === "url") {
+      try { new URL(url); } catch { setError("正しいURLを入力してください"); return; }
+    }
+    if (inputMode === "manual" && !manualText.trim()) {
+      setError("レシピのテキストを入力してください");
       return;
     }
 
@@ -46,14 +50,27 @@ export default function NewRecipePage() {
     setStep("loading");
 
     try {
+      const body = inputMode === "url"
+        ? { url }
+        : { manualText, url: "" };
+
       const res = await fetch("/api/parse-recipe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
+
       if (!res.ok) {
-        throw new Error(data.error || "解析に失敗しました");
+        // needsManual フラグがある場合は手動入力に自動切り替え
+        if (data.needsManual && inputMode === "url") {
+          setInputMode("manual");
+          setError(data.error || "自動取得に失敗しました。レシピをコピーして手動入力してください。");
+          setStep("input");
+        } else {
+          throw new Error(data.error || "解析に失敗しました");
+        }
+        return;
       }
       setParsed(data);
       setStep("preview");
@@ -69,18 +86,14 @@ export default function NewRecipePage() {
 
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push("/login");
-      return;
-    }
+    if (!user) { router.push("/login"); return; }
 
-    // レシピを保存
     const { data: recipe, error: recipeError } = await supabase
       .from("recipes")
       .insert({
         user_id: user.id,
         title: parsed.title,
-        source_url: url,
+        source_url: inputMode === "url" ? url : null,
         servings_base: parsed.servings_base || 2,
         cooking_time_minutes: parsed.cooking_time_minutes,
         category: parsed.category,
@@ -95,8 +108,7 @@ export default function NewRecipePage() {
       return;
     }
 
-    // 材料を保存
-    if (parsed.ingredients && parsed.ingredients.length > 0) {
+    if (parsed.ingredients?.length > 0) {
       const ingredients = parsed.ingredients.map((ing, i) => ({
         recipe_id: recipe.id,
         name: ing.name,
@@ -111,7 +123,7 @@ export default function NewRecipePage() {
     router.push(`/recipes/${recipe.id}`);
   };
 
-  // ---- UI ----
+  // ---- ローディング ----
   if (step === "loading") {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4 px-4">
@@ -137,26 +149,23 @@ export default function NewRecipePage() {
     );
   }
 
+  // ---- プレビュー ----
   if (step === "preview" && parsed) {
     return (
       <div className="min-h-screen bg-gray-50 pb-24">
-        {/* ヘッダー */}
         <header className="bg-white sticky top-0 z-40 border-b border-gray-100">
           <div className="px-4 py-3 flex items-center gap-3">
-            <button
-              onClick={() => setStep("input")}
-              className="text-gray-500 p-1 -ml-1"
-            >
+            <button onClick={() => setStep("input")} className="text-gray-500 p-1 -ml-1">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             <h1 className="text-lg font-bold text-gray-800 flex-1">レシピの確認</h1>
+            <span className="text-xs text-gray-400">編集できます</span>
           </div>
         </header>
 
         <div className="px-4 py-4 space-y-4">
-          {/* レシピ情報 */}
           <div className="bg-white rounded-2xl p-4 shadow-sm">
             <input
               value={parsed.title}
@@ -179,12 +188,7 @@ export default function NewRecipePage() {
                 <input
                   type="number"
                   value={parsed.cooking_time_minutes || ""}
-                  onChange={(e) =>
-                    setParsed({
-                      ...parsed,
-                      cooking_time_minutes: e.target.value ? Number(e.target.value) : null,
-                    })
-                  }
+                  onChange={(e) => setParsed({ ...parsed, cooking_time_minutes: e.target.value ? Number(e.target.value) : null })}
                   placeholder="--"
                   className="w-full text-center text-base font-semibold text-gray-700 border border-gray-200 rounded-lg py-1 focus:outline-none focus:border-orange-400"
                 />
@@ -202,7 +206,6 @@ export default function NewRecipePage() {
             </div>
           </div>
 
-          {/* 材料リスト */}
           <div className="bg-white rounded-2xl p-4 shadow-sm">
             <h2 className="text-base font-bold text-gray-800 mb-3">
               材料 ({parsed.servings_base}人前)
@@ -216,10 +219,7 @@ export default function NewRecipePage() {
                     value={ing.amount ?? ""}
                     onChange={(e) => {
                       const newIngs = [...parsed.ingredients];
-                      newIngs[i] = {
-                        ...newIngs[i],
-                        amount: e.target.value ? Number(e.target.value) : null,
-                      };
+                      newIngs[i] = { ...newIngs[i], amount: e.target.value ? Number(e.target.value) : null };
                       setParsed({ ...parsed, ingredients: newIngs });
                     }}
                     className="w-16 text-right text-sm text-gray-700 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-orange-400"
@@ -238,7 +238,6 @@ export default function NewRecipePage() {
             </div>
           </div>
 
-          {/* エラー表示 */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
               <p className="text-red-600 text-sm">{error}</p>
@@ -246,7 +245,6 @@ export default function NewRecipePage() {
           )}
         </div>
 
-        {/* 保存ボタン（固定） */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3">
           <button
             onClick={handleSave}
@@ -259,16 +257,12 @@ export default function NewRecipePage() {
     );
   }
 
-  // step === "input"
+  // ---- 入力 ----
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ヘッダー */}
+    <div className="min-h-screen bg-gray-50 pb-8">
       <header className="bg-white sticky top-0 z-40 border-b border-gray-100">
         <div className="px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            className="text-gray-500 p-1 -ml-1"
-          >
+          <button onClick={() => router.back()} className="text-gray-500 p-1 -ml-1">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -277,60 +271,115 @@ export default function NewRecipePage() {
         </div>
       </header>
 
-      <div className="px-4 py-6 space-y-6">
-        {/* 説明 */}
-        <div className="bg-orange-50 rounded-2xl p-4 flex gap-3">
-          <span className="text-2xl flex-shrink-0">✨</span>
-          <div>
-            <p className="text-sm font-semibold text-orange-700 mb-1">AIで自動取り込み</p>
-            <p className="text-xs text-orange-600 leading-relaxed">
-              クックパッド・クラシルなどのレシピURLを入力すると、AIが材料や分量を自動で読み取ります
-            </p>
-          </div>
+      <div className="px-4 py-4 space-y-4">
+        {/* 切り替えタブ */}
+        <div className="bg-gray-100 rounded-xl p-1 flex">
+          <button
+            onClick={() => { setInputMode("url"); setError(""); }}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
+              inputMode === "url" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"
+            }`}
+          >
+            🔗 URLから取り込む
+          </button>
+          <button
+            onClick={() => { setInputMode("manual"); setError(""); }}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
+              inputMode === "manual" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"
+            }`}
+          >
+            ✏️ テキストで入力
+          </button>
         </div>
 
-        {/* URL入力 */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            レシピのURL
-          </label>
-          <input
-            type="url"
-            value={url}
-            onChange={(e) => {
-              setUrl(e.target.value);
-              setError("");
-            }}
-            placeholder="https://cookpad.com/recipe/..."
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"
-            autoFocus
-          />
-          {error && (
-            <p className="text-red-500 text-xs mt-2">{error}</p>
-          )}
-        </div>
+        {inputMode === "url" ? (
+          <>
+            <div className="bg-orange-50 rounded-2xl p-4 flex gap-3">
+              <span className="text-2xl flex-shrink-0">✨</span>
+              <div>
+                <p className="text-sm font-semibold text-orange-700 mb-1">AIで自動取り込み</p>
+                <p className="text-xs text-orange-600 leading-relaxed">
+                  レシピURLを入力するとAIが材料・分量を自動で読み取ります
+                </p>
+              </div>
+            </div>
 
-        {/* 対応サイト例 */}
-        <div>
-          <p className="text-xs text-gray-400 mb-2 px-1">対応サイト（例）</p>
-          <div className="flex flex-wrap gap-2">
-            {["クックパッド", "クラシル", "デリッシュキッチン", "NHKきょうの料理", "白ごはん.com"].map(
-              (site) => (
-                <span
-                  key={site}
-                  className="text-xs bg-white border border-gray-200 text-gray-500 px-3 py-1.5 rounded-full shadow-sm"
-                >
-                  {site}
-                </span>
-              )
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                レシピのURL
+              </label>
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => { setUrl(e.target.value); setError(""); }}
+                placeholder="https://cookpad.com/recipe/..."
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                autoFocus
+              />
+              {error && <p className="text-red-500 text-xs mt-2 whitespace-pre-line">{error}</p>}
+            </div>
+
+            <div>
+              <p className="text-xs text-gray-400 mb-2 px-1">対応サイト（例）</p>
+              <div className="flex flex-wrap gap-2">
+                {["クックパッド", "白ごはん.com", "NHKきょうの料理", "みんなのきょうの料理"].map((site) => (
+                  <span key={site} className="text-xs bg-white border border-gray-200 text-gray-500 px-3 py-1.5 rounded-full shadow-sm">
+                    {site}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 mt-2 px-1">
+                ※クラシル・デリッシュキッチン等はURL取得非対応のため「テキスト入力」をご利用ください
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="bg-blue-50 rounded-2xl p-4 flex gap-3">
+              <span className="text-2xl flex-shrink-0">📋</span>
+              <div>
+                <p className="text-sm font-semibold text-blue-700 mb-1">テキストから取り込む</p>
+                <p className="text-xs text-blue-600 leading-relaxed">
+                  クラシル・デリッシュキッチンなどのレシピページのテキストをコピーして貼り付けてください
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                レシピのテキスト
+              </label>
+              <textarea
+                value={manualText}
+                onChange={(e) => { setManualText(e.target.value); setError(""); }}
+                placeholder={"レシピ名、材料、分量などをコピーして貼り付けてください\n\n例：\n鶏の唐揚げ\n2人分 / 30分\n\n材料：\n鶏もも肉 300g\n醤油 大さじ2\nにんにく 1片..."}
+                rows={12}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                autoFocus
+              />
+              {error && <p className="text-red-500 text-xs mt-2">{error}</p>}
+            </div>
+
+            {inputMode === "manual" && url && (
+              <div className="bg-white rounded-2xl p-4 shadow-sm">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  元レシピURL（任意）
+                </label>
+                <input
+                  type="url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                />
+              </div>
             )}
-          </div>
-        </div>
+          </>
+        )}
 
-        {/* 取り込みボタン */}
         <button
           onClick={handleParse}
-          disabled={!url.trim()}
+          disabled={inputMode === "url" ? !url.trim() : !manualText.trim()}
           className="w-full bg-orange-500 disabled:bg-gray-200 disabled:text-gray-400 text-white py-4 rounded-xl font-bold text-base shadow-md active:scale-95 transition-transform"
         >
           AIでレシピを取り込む
