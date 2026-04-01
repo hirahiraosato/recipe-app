@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-rgb: 255, 255, 255;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+/* スマホ向けタッチ最適化 */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ボトムナビゲーション用の余白 */
+.pb-safe {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+}
