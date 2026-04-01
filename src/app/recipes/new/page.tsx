@@ -340,7 +340,8 @@ export default function NewRecipePage() {
               <div>
                 <p className="text-sm font-semibold text-blue-700 mb-1">テキストから取り込む</p>
                 <p className="text-xs text-blue-600 leading-relaxed">
-                  クラシル・デリッシュキッチンなどのレシピページのテキストをコピーして貼り付けてください
+                  レシピページで <strong>Ctrl+A（全選択）→ Ctrl+C（コピー）</strong> してから貼り付けてください。<br />
+                  材料・分量の部分が含まれていると精度が上がります。
                 </p>
               </div>
             </div>
@@ -352,7 +353,7 @@ export default function NewRecipePage() {
               <textarea
                 value={manualText}
                 onChange={(e) => { setManualText(e.target.value); setError(""); }}
-                placeholder={"レシピ名、材料、分量などをコピーして貼り付けてください\n\n例：\n鶏の唐揚げ\n2人分 / 30分\n\n材料：\n鶏もも肉 300g\n醤油 大さじ2\nにんにく 1片..."}
+                placeholder={"ページ全体をコピー（Ctrl+A → Ctrl+C）して貼り付けてください\n材料・分量が含まれていると自動で読み取れます\n\n例：\n豆腐とわかめの味噌汁\n2人分 / 10分\n\n材料：\n豆腐 1/2丁\nわかめ 5g\nだし 400ml\n味噌 大さじ2..."}
                 rows={12}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
                 autoFocus

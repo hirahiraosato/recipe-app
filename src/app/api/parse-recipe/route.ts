@@ -211,24 +211,53 @@ ${content}`;
     const result = await model.generateContent(prompt);
     const text = result.response.text();
 
-    // JSONを抽出
+    // JSONを抽出（複数のパターンで試みる）
+    let recipeData = null;
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return NextResponse.json(
-        { error: "レシピ情報を読み取れませんでした。手動入力をお試しください。", needsManual: true },
-        { status: 500 }
-      );
+    if (jsonMatch) {
+      try {
+        recipeData = JSON.parse(jsonMatch[0]);
+      } catch {
+        // JSONパースに失敗した場合、最低限の構造を返す
+        recipeData = {
+          title: "レシピ",
+          servings_base: 2,
+          cooking_time_minutes: null,
+          category: null,
+          notes: content.slice(0, 200),
+          ingredients: [],
+        };
+      }
     }
 
-    const recipeData = JSON.parse(jsonMatch[0]);
-    // source_urlを付与
+    if (!recipeData) {
+      // Geminiが何も返せなかった場合も最低限の構造を返す
+      recipeData = {
+        title: "レシピ",
+        servings_base: 2,
+        cooking_time_minutes: null,
+        category: null,
+        notes: null,
+        ingredients: [],
+      };
+    }
+
+    // 必須フィールドの保証
+    recipeData.ingredients = Array.isArray(recipeData.ingredients) ? recipeData.ingredients : [];
+    recipeData.servings_base = recipeData.servings_base || 2;
     recipeData.source_url = url;
     return NextResponse.json(recipeData);
   } catch (error) {
     console.error("Gemini parse error:", error);
-    return NextResponse.json(
-      { error: "AI解析に失敗しました。手動入力をお試しください。", needsManual: true },
-      { status: 500 }
-    );
+    // API自体が失敗した場合は最低限の構造を返してプレビュー画面へ
+    return NextResponse.json({
+      title: "レシピ",
+      servings_base: 2,
+      cooking_time_minutes: null,
+      category: null,
+      notes: null,
+      ingredients: [],
+      source_url: url,
+    });
   }
 }
