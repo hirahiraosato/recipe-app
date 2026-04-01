@@ -101,10 +101,14 @@ function guessCategory(name: string): string {
 }
 
 // Geminiでテキストを解析して構造化レシピを返す
-async function parseWithGemini(content: string): Promise<object> {
+async function parseWithGemini(content: string): Promise<{ data?: object; error?: string }> {
   if (!GEMINI_API_KEY) {
-    console.error("GEMINI_API_KEY is not set");
-    return buildFallback();
+    return { error: "GEMINI_API_KEY が設定されていません。Vercel環境変数を確認してください。" };
+  }
+
+  const trimmedContent = content.trim();
+  if (!trimmedContent || trimmedContent.length < 10) {
+    return { error: "テキストが短すぎます。レシピページ全体をコピーして貼り付けてください。" };
   }
 
   const prompt = `以下のテキストから料理レシピ情報を抽出してください。
@@ -129,34 +133,30 @@ async function parseWithGemini(content: string): Promise<object> {
 }
 
 テキスト:
-${content}`;
+${trimmedContent.slice(0, 30000)}`;
 
   try {
     const text = await callGemini(prompt);
 
+    if (!text) {
+      return { error: "GeminiAPIから空のレスポンスが返りました。" };
+    }
+
     // JSON部分のみ抽出
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return buildFallback();
+    if (!jsonMatch) {
+      return { error: `GeminiのレスポンスがJSON形式ではありません: ${text.slice(0, 100)}` };
+    }
 
     const data = JSON.parse(jsonMatch[0]);
     data.ingredients = Array.isArray(data.ingredients) ? data.ingredients : [];
     data.servings_base = data.servings_base || 2;
-    return data;
+    return { data };
   } catch (err) {
-    console.error("Gemini parse failed:", err);
-    return buildFallback();
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error("Gemini parse failed:", errMsg);
+    return { error: `AI解析エラー: ${errMsg.slice(0, 200)}` };
   }
-}
-
-function buildFallback() {
-  return {
-    title: "レシピ",
-    servings_base: 2,
-    cooking_time_minutes: null,
-    category: null,
-    notes: null,
-    ingredients: [],
-  };
 }
 
 export async function POST(request: NextRequest) {
@@ -165,8 +165,11 @@ export async function POST(request: NextRequest) {
 
     // 手動テキスト入力
     if (manualText) {
-      const data = await parseWithGemini(manualText);
-      return NextResponse.json(data);
+      const result = await parseWithGemini(manualText);
+      if (result.error) {
+        return NextResponse.json({ error: result.error }, { status: 500 });
+      }
+      return NextResponse.json(result.data);
     }
 
     if (!url) {
@@ -219,10 +222,14 @@ export async function POST(request: NextRequest) {
 
     // Geminiで解析
     const truncated = html.slice(0, 40000);
-    const data = await parseWithGemini(truncated);
-    return NextResponse.json(data);
+    const result = await parseWithGemini(truncated);
+    if (result.error) {
+      return NextResponse.json({ error: result.error, needsManual: true }, { status: 500 });
+    }
+    return NextResponse.json(result.data);
   } catch (err) {
-    console.error("parse-recipe error:", err);
-    return NextResponse.json(buildFallback());
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error("parse-recipe error:", errMsg);
+    return NextResponse.json({ error: `サーバーエラー: ${errMsg.slice(0, 200)}` }, { status: 500 });
   }
 }
