@@ -185,7 +185,7 @@ async function parseWithGemini(content: string, url: string) {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `以下のテキストから料理レシピ情報を抽出してください。
-必ずJSON形式のみで返してください（前後の説明文やコードブロック記号```は不要）。
+必ずJSON形式のみで返してください（前後の説明文やコードブロック記号は不要）。
 
 JSON形式:
 {
