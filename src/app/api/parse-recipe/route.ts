@@ -99,12 +99,19 @@ function extractFromJsonLd(html: string) {
         }
       }
 
+      const allText = [
+        recipe.name || "",
+        recipe.description || "",
+        ...steps.map((s: { step_text: string }) => s.step_text),
+      ].join(" ");
+
       return {
         title: recipe.name || "レシピ",
         servings_base: servings,
         cooking_time_minutes: cookingTime,
         category: recipe.recipeCategory || null,
         notes: recipe.description?.slice(0, 200) || null,
+        tags: guessTags(allText),
         ingredients,
         steps,
       };
@@ -113,6 +120,20 @@ function extractFromJsonLd(html: string) {
     }
   }
   return null;
+}
+
+function guessTags(text: string): string[] {
+  const t = text;
+  const tags: string[] = [];
+  if (/冷凍/.test(t)) tags.push("freezable");
+  if (/レンジ|電子レンジ/.test(t)) tags.push("microwave");
+  if (/炊飯器/.test(t)) tags.push("rice_cooker");
+  if (/乳児|赤ちゃん|離乳食|とりわけ/.test(t)) tags.push("baby");
+  if (/作り置き|常備菜/.test(t)) tags.push("make_ahead");
+  if (/時短|簡単|すぐ/.test(t)) tags.push("quick");
+  if (/オーブン/.test(t)) tags.push("oven");
+  if (/加熱不要|火を使わない/.test(t)) tags.push("no_heat");
+  return tags;
 }
 
 function guessCategory(name: string): string {
@@ -144,6 +165,7 @@ async function parseWithGemini(content: string): Promise<{ data?: object; error?
   "cooking_time_minutes": 調理時間の数値または null,
   "category": "主菜/副菜/汁物/デザート/その他 または null",
   "notes": "備考または null",
+  "tags": ["該当するタグIDのみ配列で。選択肢: freezable(冷凍保存OK), microwave(レンジ使用), rice_cooker(炊飯器使用), baby(乳児とりわけ可), make_ahead(作り置き), quick(時短), oven(オーブン使用), no_heat(加熱不要)"],
   "ingredients": [
     {
       "name": "材料名",
@@ -202,6 +224,7 @@ ${trimmedContent.slice(0, 30000)}`;
 
     data.ingredients = Array.isArray(data.ingredients) ? data.ingredients : [];
     data.steps = Array.isArray(data.steps) ? data.steps : [];
+    data.tags = Array.isArray(data.tags) ? data.tags : [];
     data.servings_base = data.servings_base || 2;
     return { data };
   } catch (err) {

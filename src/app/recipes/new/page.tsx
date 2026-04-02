@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { RECIPE_TAGS } from "@/lib/recipeTags";
 
 type ParsedIngredient = {
   name: string;
@@ -25,6 +26,7 @@ type ParsedRecipe = {
   notes: string | null;
   ingredients: ParsedIngredient[];
   steps: ParsedStep[];
+  tags: string[];
 };
 
 type Step = "input" | "loading" | "preview" | "saving";
@@ -79,6 +81,7 @@ export default function NewRecipePage() {
         return;
       }
       if (!data.steps) data.steps = [];
+      if (!data.tags) data.tags = [];
       setParsed(data);
       setStep("preview");
     } catch (err: unknown) {
@@ -105,6 +108,7 @@ export default function NewRecipePage() {
         cooking_time_minutes: parsed.cooking_time_minutes,
         category: parsed.category,
         notes: parsed.notes,
+        tags: parsed.tags || [],
       })
       .select()
       .single();
@@ -296,6 +300,41 @@ export default function NewRecipePage() {
               </div>
             </div>
           )}
+
+          {/* タグ */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-base font-bold text-gray-800">特徴・備考</h2>
+              {parsed.tags.length > 0 && (
+                <span className="text-xs text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full">AIが候補を選択済み</span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {RECIPE_TAGS.map((tag) => {
+                const selected = parsed.tags.includes(tag.id);
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => {
+                      const newTags = selected
+                        ? parsed.tags.filter((t) => t !== tag.id)
+                        : [...parsed.tags, tag.id];
+                      setParsed({ ...parsed, tags: newTags });
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                      selected
+                        ? "bg-orange-500 text-white border-orange-500"
+                        : "bg-white text-gray-600 border-gray-200"
+                    }`}
+                  >
+                    <span>{tag.emoji}</span>
+                    <span>{tag.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
