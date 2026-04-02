@@ -22,12 +22,11 @@ export default async function RecipeDetailPage({
   if (!recipe) redirect("/recipes");
 
   // 材料取得
-  const { data: ingredients, error: ingError } = await supabase
+  const { data: ingredients } = await supabase
     .from("ingredients")
     .select("*")
     .eq("recipe_id", params.id)
     .order("order_index");
-  if (ingError) console.error("ingredients fetch error:", ingError.message, ingError.code, ingError.details);
 
   // 手順取得
   const { data: steps } = await supabase
@@ -44,18 +43,11 @@ export default async function RecipeDetailPage({
     .order("created_at");
 
   return (
-    <>
-      {ingError && (
-        <div style={{background:"#fee",padding:"8px",fontSize:"12px",wordBreak:"break-all"}}>
-          材料取得エラー: {ingError.message} / code: {ingError.code}
-        </div>
-      )}
-      <RecipeDetailClient
-        recipe={recipe}
-        ingredients={ingredients || []}
-        steps={steps || []}
-        familyMembers={familyMembers || []}
-      />
-    </>
+    <RecipeDetailClient
+      recipe={recipe}
+      ingredients={ingredients || []}
+      steps={steps || []}
+      familyMembers={familyMembers || []}
+    />
   );
 }
