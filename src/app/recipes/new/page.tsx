@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { RECIPE_TAGS } from "@/lib/recipeTags";
+import { parseFraction, formatAmount } from "@/lib/fractionUtils";
 
 type ParsedIngredient = {
   name: string;
-  amount: number | null;
+  amount: string;   // 表示・編集用の文字列（"1/2", "2/3", "100" など）
   unit: string;
   category: string;
   order_index: number;
@@ -85,6 +86,11 @@ export default function NewRecipePage() {
       if (!data.steps) data.steps = [];
       if (!data.tags) data.tags = [];
       if (!data.image_url) data.image_url = null;
+      // 材料の amount を数値→分数文字列に変換
+      data.ingredients = (data.ingredients || []).map((ing: { name: string; amount: number | null; unit: string; category: string; order_index: number }) => ({
+        ...ing,
+        amount: ing.amount !== null && ing.amount !== undefined ? formatAmount(ing.amount) : "",
+      }));
       setAiSuggestedTags(data.tags.length > 0 ? [...data.tags] : []);
       setParsed(data);
       setStep("preview");
@@ -128,7 +134,7 @@ export default function NewRecipePage() {
       const ingredients = parsed.ingredients.map((ing, i) => ({
         recipe_id: recipe.id,
         name: ing.name,
-        amount: ing.amount,
+        amount: parseFraction(ing.amount),
         unit: ing.unit || "",
         category: ing.category || "その他",
         order_index: i,
@@ -266,13 +272,15 @@ export default function NewRecipePage() {
                     className="flex-1 text-sm text-gray-700 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-orange-400"
                   />
                   <input
-                    type="number"
-                    value={ing.amount ?? ""}
+                    type="text"
+                    inputMode="decimal"
+                    value={ing.amount}
                     onChange={(e) => {
                       const newIngs = [...parsed.ingredients];
-                      newIngs[i] = { ...newIngs[i], amount: e.target.value ? Number(e.target.value) : null };
+                      newIngs[i] = { ...newIngs[i], amount: e.target.value };
                       setParsed({ ...parsed, ingredients: newIngs });
                     }}
+                    placeholder="1/2"
                     className="w-16 text-right text-sm text-gray-700 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-orange-400"
                   />
                   <input

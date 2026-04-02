@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { RECIPE_TAGS } from "@/lib/recipeTags";
+import { formatAmount } from "@/lib/fractionUtils";
 
 type Recipe = {
   id: string;
@@ -51,25 +52,6 @@ function getCoefficient(birthDate: string | null): number {
   if (age <= 5) return 0.5;
   if (age <= 12) return 0.7;
   return 1.0;
-}
-
-// 数値を見やすくフォーマット
-function formatAmount(amount: number): string {
-  if (amount === Math.floor(amount)) return String(amount);
-  // 1/2, 1/3等の分数に近い場合
-  const fractions: [number, string][] = [
-    [0.25, "1/4"], [0.5, "1/2"], [0.75, "3/4"],
-    [0.333, "1/3"], [0.667, "2/3"],
-  ];
-  for (const [val, str] of fractions) {
-    if (Math.abs(amount - val) < 0.05) return str;
-    if (amount > 1) {
-      const whole = Math.floor(amount);
-      const frac = amount - whole;
-      if (Math.abs(frac - val) < 0.05) return `${whole}${str}`;
-    }
-  }
-  return amount.toFixed(1);
 }
 
 // カテゴリの表示順

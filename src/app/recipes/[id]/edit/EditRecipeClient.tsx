@@ -4,8 +4,18 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { RECIPE_TAGS } from "@/lib/recipeTags";
+import { parseFraction, formatAmount } from "@/lib/fractionUtils";
 
 type Ingredient = {
+  id?: string;
+  name: string;
+  amount: string;   // 表示・編集用の文字列（"1/2", "2/3", "100" など）
+  unit: string;
+  category: string;
+  order_index: number;
+};
+
+type IngredientFromDB = {
   id?: string;
   name: string;
   amount: number | null;
@@ -37,7 +47,7 @@ export default function EditRecipeClient({
   steps: initialSteps,
 }: {
   recipe: Recipe;
-  ingredients: Ingredient[];
+  ingredients: IngredientFromDB[];
   steps: Step[];
 }) {
   const router = useRouter();
@@ -56,8 +66,11 @@ export default function EditRecipeClient({
 
   const [ingredients, setIngredients] = useState<Ingredient[]>(
     initialIngredients.length > 0
-      ? initialIngredients
-      : [{ name: "", amount: null, unit: "", category: "その他", order_index: 0 }]
+      ? initialIngredients.map((ing) => ({
+          ...ing,
+          amount: ing.amount !== null && ing.amount !== undefined ? formatAmount(ing.amount) : "",
+        }))
+      : [{ name: "", amount: "", unit: "", category: "その他", order_index: 0 }]
   );
   const [steps, setSteps] = useState<Step[]>(
     initialSteps.length > 0
@@ -66,7 +79,7 @@ export default function EditRecipeClient({
   );
 
   const addIngredient = () => {
-    setIngredients([...ingredients, { name: "", amount: null, unit: "", category: "その他", order_index: ingredients.length }]);
+    setIngredients([...ingredients, { name: "", amount: "", unit: "", category: "その他", order_index: ingredients.length }]);
   };
 
   const removeIngredient = (i: number) => {
@@ -116,7 +129,7 @@ export default function EditRecipeClient({
         validIngredients.map((ing, i) => ({
           recipe_id: recipe.id,
           name: ing.name.trim(),
-          amount: ing.amount,
+          amount: parseFraction(ing.amount),
           unit: ing.unit || "",
           category: ing.category || "その他",
           order_index: i,
@@ -236,14 +249,15 @@ export default function EditRecipeClient({
                   className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-orange-400"
                 />
                 <input
-                  type="number"
-                  value={ing.amount ?? ""}
+                  type="text"
+                  inputMode="decimal"
+                  value={ing.amount}
                   onChange={(e) => {
                     const n = [...ingredients];
-                    n[i] = { ...n[i], amount: e.target.value ? Number(e.target.value) : null };
+                    n[i] = { ...n[i], amount: e.target.value };
                     setIngredients(n);
                   }}
-                  placeholder="量"
+                  placeholder="1/2"
                   className="w-16 text-right text-sm border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:border-orange-400"
                 />
                 <input
