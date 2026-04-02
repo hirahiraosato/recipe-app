@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { RECIPE_TAGS } from "@/lib/recipeTags";
 
 type Recipe = {
   id: string;
@@ -11,6 +12,7 @@ type Recipe = {
   category: string | null;
   cooking_time_minutes: number | null;
   created_at: string;
+  tags: string[];
 };
 
 export default function RecipesClient({
@@ -117,6 +119,18 @@ export default function RecipesClient({
                         </span>
                       )}
                     </div>
+                    {recipe.tags?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {RECIPE_TAGS.filter((t) => recipe.tags.includes(t.id)).slice(0, 2).map((tag) => (
+                          <span key={tag.id} className="text-xs text-gray-500">
+                            {tag.emoji}{tag.label}
+                          </span>
+                        ))}
+                        {recipe.tags.length > 2 && (
+                          <span className="text-xs text-gray-400">+{recipe.tags.length - 2}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </Link>
