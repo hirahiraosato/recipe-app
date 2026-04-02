@@ -21,10 +21,20 @@ export default function RecipesClient({
   initialRecipes: Recipe[];
 }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
-  const filtered = initialRecipes.filter((r) =>
-    r.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const toggleTag = (tagId: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId]
+    );
+  };
+
+  const filtered = initialRecipes.filter((r) => {
+    const matchesSearch = r.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesTags =
+      selectedTags.length === 0 || selectedTags.every((t) => r.tags?.includes(t));
+    return matchesSearch && matchesTags;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -60,6 +70,25 @@ export default function RecipesClient({
               className="w-full pl-9 pr-4 py-2 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
             />
           </div>
+          {/* タグフィルター */}
+          <div className="flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-hide">
+            {RECIPE_TAGS.map((tag) => {
+              const active = selectedTags.includes(tag.id);
+              return (
+                <button
+                  key={tag.id}
+                  onClick={() => toggleTag(tag.id)}
+                  className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    active
+                      ? "bg-orange-500 text-white border-orange-500"
+                      : "bg-white text-gray-500 border-gray-200"
+                  }`}
+                >
+                  {tag.emoji} {tag.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </header>
 
@@ -69,12 +98,12 @@ export default function RecipesClient({
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="text-5xl mb-4">🍳</div>
             <p className="text-gray-500 text-base font-medium mb-1">
-              {searchQuery ? "レシピが見つかりません" : "レシピがまだありません"}
+              {searchQuery || selectedTags.length > 0 ? "レシピが見つかりません" : "レシピがまだありません"}
             </p>
             <p className="text-gray-400 text-sm mb-6">
-              {searchQuery ? "検索ワードを変えてみてください" : "URLからレシピを追加してみましょう"}
+              {searchQuery || selectedTags.length > 0 ? "条件を変えてみてください" : "URLからレシピを追加してみましょう"}
             </p>
-            {!searchQuery && (
+            {!searchQuery && selectedTags.length === 0 && (
               <Link
                 href="/recipes/new"
                 className="bg-orange-500 text-white px-6 py-3 rounded-xl font-medium text-sm shadow-md"
