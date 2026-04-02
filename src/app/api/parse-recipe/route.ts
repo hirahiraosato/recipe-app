@@ -4,7 +4,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
-// Gemini REST APIを直接呼ぶ
+// Gemini REST APIを直接呼ぶ（テキスト）
 async function callGemini(prompt: string): Promise<string> {
   const res = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
     method: "POST",
@@ -19,6 +19,32 @@ async function callGemini(prompt: string): Promise<string> {
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`Gemini API error ${res.status}: ${err}`);
+  }
+
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+}
+
+// Gemini Vision API（画像 + テキスト）
+async function callGeminiVision(imageBase64: string, mimeType: string, prompt: string): Promise<string> {
+  const res = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: mimeType, data: imageBase64 } },
+          { text: prompt },
+        ],
+      }],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+    }),
+    signal: AbortSignal.timeout(60000),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini Vision API error ${res.status}: ${err}`);
   }
 
   const data = await res.json();
@@ -263,6 +289,47 @@ function htmlToText(html: string): string {
     .slice(0, 30000);
 }
 
+// GeminiレスポンスからJSONを抽出・パース（共通）
+function extractJsonFromGeminiResponse(text: string): { data?: Record<string, unknown>; error?: string } {
+  if (!text) return { error: "GeminiAPIから空のレスポンスが返りました。" };
+
+  let jsonStr: string | null = null;
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    jsonStr = codeBlockMatch[1].trim();
+  } else {
+    const objMatch = text.match(/\{[\s\S]*\}/);
+    if (objMatch) jsonStr = objMatch[0];
+  }
+  if (!jsonStr) {
+    return { error: `GeminiのレスポンスがJSON形式ではありません: ${text.slice(0, 100)}` };
+  }
+
+  const cleanJson = jsonStr.replace(/[\u0000-\u001F\u007F]/g, (ch) => {
+    if (ch === "\t" || ch === "\n" || ch === "\r") return " ";
+    return "";
+  });
+
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(cleanJson);
+  } catch {
+    try {
+      const withoutSteps = cleanJson.replace(/"steps"\s*:\s*\[[\s\S]*?\](\s*,)?/, '"steps": []');
+      data = JSON.parse(withoutSteps);
+    } catch (e2) {
+      const msg = e2 instanceof Error ? e2.message : String(e2);
+      return { error: `JSONパースエラー: ${msg.slice(0, 150)}` };
+    }
+  }
+
+  data.ingredients = Array.isArray(data.ingredients) ? data.ingredients : [];
+  data.steps = Array.isArray(data.steps) ? data.steps : [];
+  data.tags = Array.isArray(data.tags) ? data.tags : [];
+  data.servings_base = data.servings_base || 2;
+  return { data };
+}
+
 // Geminiでテキストを解析して構造化レシピを返す
 async function parseWithGemini(content: string): Promise<{ data?: object; error?: string }> {
   if (!GEMINI_API_KEY) {
@@ -307,52 +374,7 @@ ${trimmedContent.slice(0, 30000)}`;
 
   try {
     const text = await callGemini(prompt);
-
-    if (!text) {
-      return { error: "GeminiAPIから空のレスポンスが返りました。" };
-    }
-
-    // JSON部分のみ抽出（```json ... ``` ブロックにも対応）
-    let jsonStr: string | null = null;
-    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (codeBlockMatch) {
-      jsonStr = codeBlockMatch[1].trim();
-    } else {
-      const objMatch = text.match(/\{[\s\S]*\}/);
-      if (objMatch) jsonStr = objMatch[0];
-    }
-    if (!jsonStr) {
-      return { error: `GeminiのレスポンスがJSON形式ではありません: ${text.slice(0, 100)}` };
-    }
-
-    // JSON文字列内の不正な改行・制御文字をエスケープ
-    const cleanJson = jsonStr
-      .replace(/[\u0000-\u001F\u007F]/g, (ch) => {
-        // 許可する制御文字のみエスケープ、タブ・改行はスペースに
-        if (ch === '\t') return ' ';
-        if (ch === '\n' || ch === '\r') return ' ';
-        return '';
-      });
-
-    let data;
-    try {
-      data = JSON.parse(cleanJson);
-    } catch {
-      // クリーンアップしても失敗した場合、stepsなし版を試みる
-      try {
-        const withoutSteps = cleanJson.replace(/"steps"\s*:\s*\[[\s\S]*?\](\s*,)?/, '"steps": []');
-        data = JSON.parse(withoutSteps);
-      } catch (e2) {
-        const msg = e2 instanceof Error ? e2.message : String(e2);
-        return { error: `JSONパースエラー: ${msg.slice(0, 150)}` };
-      }
-    }
-
-    data.ingredients = Array.isArray(data.ingredients) ? data.ingredients : [];
-    data.steps = Array.isArray(data.steps) ? data.steps : [];
-    data.tags = Array.isArray(data.tags) ? data.tags : [];
-    data.servings_base = data.servings_base || 2;
-    return { data };
+    return extractJsonFromGeminiResponse(text);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error("Gemini parse failed:", errMsg);
@@ -362,7 +384,50 @@ ${trimmedContent.slice(0, 30000)}`;
 
 export async function POST(request: NextRequest) {
   try {
-    const { url, manualText } = await request.json();
+    const { url, manualText, imageBase64, mimeType } = await request.json();
+
+    // 画像入力
+    if (imageBase64) {
+      if (!GEMINI_API_KEY) {
+        return NextResponse.json({ error: "GEMINI_API_KEY が設定されていません。" }, { status: 500 });
+      }
+      const prompt = `この画像はレシピです。画像から料理レシピ情報を抽出してください。
+必ず純粋なJSONのみを返してください（説明文や記号は不要）。
+
+形式:
+{
+  "title": "レシピ名",
+  "servings_base": 人数の数値（例: 2）,
+  "cooking_time_minutes": 調理時間の数値または null,
+  "category": "次の選択肢から最も近いものを選択（一致しなければ null）: 主菜（肉）/主菜（魚）/主菜（卵・豆腐）/副菜/汁物・スープ/ご飯・丼/麺・パスタ/パン・粉もの/サラダ/お菓子・デザート/その他",
+  "notes": "備考または null",
+  "tags": ["該当するタグIDのみ配列で。選択肢: freezable(冷凍保存OK), microwave(レンジ使用), rice_cooker(炊飯器使用), baby(乳児とりわけ可), make_ahead(作り置き), quick(時短), oven(オーブン使用), no_heat(加熱不要)"],
+  "ingredients": [
+    {
+      "name": "材料名",
+      "amount": 数量の数値または null,
+      "unit": "単位（g/ml/個/大さじ など）",
+      "category": "肉類/魚介類/野菜/調味料/その他",
+      "order_index": 0
+    }
+  ],
+  "steps": [
+    {
+      "step_number": 1,
+      "step_text": "手順の内容"
+    }
+  ]
+}`;
+      try {
+        const text = await callGeminiVision(imageBase64, mimeType || "image/jpeg", prompt);
+        const result = extractJsonFromGeminiResponse(text);
+        if (result.error) return NextResponse.json({ error: result.error }, { status: 500 });
+        return NextResponse.json(result.data);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: `画像解析エラー: ${msg.slice(0, 200)}` }, { status: 500 });
+      }
+    }
 
     // 手動テキスト入力
     if (manualText) {

@@ -33,7 +33,7 @@ type ParsedRecipe = {
 };
 
 type Step = "input" | "loading" | "preview" | "saving";
-type InputMode = "url" | "manual";
+type InputMode = "url" | "manual" | "image";
 
 export default function NewRecipePage() {
   const router = useRouter();
@@ -41,6 +41,8 @@ export default function NewRecipePage() {
   const [inputMode, setInputMode] = useState<InputMode>("url");
   const [url, setUrl] = useState("");
   const [manualText, setManualText] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedRecipe | null>(null);
   const [aiSuggestedTags, setAiSuggestedTags] = useState<string[]>([]);
   const [error, setError] = useState("");
@@ -57,19 +59,39 @@ export default function NewRecipePage() {
       setError("レシピのテキストを入力してください");
       return;
     }
+    if (inputMode === "image" && !imageFile) {
+      setError("画像を選択してください");
+      return;
+    }
 
     setError("");
     setStep("loading");
 
     try {
-      const body = inputMode === "url"
-        ? { url }
-        : { manualText, url: "" };
+      let body: Record<string, unknown>;
+      if (inputMode === "url") {
+        body = { url };
+      } else if (inputMode === "image" && imageFile) {
+        // 画像をbase64に変換
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(",")[1]); // data:image/...;base64, を除去
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(imageFile);
+        });
+        body = { imageBase64: base64, mimeType: imageFile.type };
+      } else {
+        body = { manualText, url: "" };
+      }
 
       const res = await fetch("/api/parse-recipe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(90000),
       });
       const data = await res.json();
 
@@ -400,23 +422,84 @@ export default function NewRecipePage() {
         <div className="bg-gray-100 rounded-xl p-1 flex">
           <button
             onClick={() => { setInputMode("url"); setError(""); }}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
               inputMode === "url" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"
             }`}
           >
-            🔗 URLから取り込む
+            🔗 URL
+          </button>
+          <button
+            onClick={() => { setInputMode("image"); setError(""); }}
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
+              inputMode === "image" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"
+            }`}
+          >
+            📷 画像
           </button>
           <button
             onClick={() => { setInputMode("manual"); setError(""); }}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
               inputMode === "manual" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"
             }`}
           >
-            ✏️ テキストで入力
+            ✏️ テキスト
           </button>
         </div>
 
-        {inputMode === "url" ? (
+        {inputMode === "image" ? (
+          <>
+            <div className="bg-purple-50 rounded-2xl p-4 flex gap-3">
+              <span className="text-2xl flex-shrink-0">📷</span>
+              <div>
+                <p className="text-sm font-semibold text-purple-700 mb-1">画像から取り込む</p>
+                <p className="text-xs text-purple-600 leading-relaxed">
+                  レシピのスクリーンショットや写真を選択するとAIが自動で読み取ります
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                画像を選択
+              </label>
+              {imagePreview ? (
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imagePreview} alt="選択した画像" className="w-full rounded-xl object-contain max-h-64" />
+                  <button
+                    onClick={() => { setImageFile(null); setImagePreview(null); }}
+                    className="absolute top-2 right-2 bg-black/50 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-purple-300 transition-colors">
+                  <svg className="w-10 h-10 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-sm text-gray-400">タップして画像を選択</span>
+                  <span className="text-xs text-gray-300 mt-1">JPG / PNG / WEBP</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setImageFile(file);
+                      setError("");
+                      const reader = new FileReader();
+                      reader.onload = () => setImagePreview(reader.result as string);
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+              )}
+              {error && <p className="text-red-500 text-xs mt-2">{error}</p>}
+            </div>
+          </>
+        ) : inputMode === "url" ? (
           <>
             <div className="bg-orange-50 rounded-2xl p-4 flex gap-3">
               <span className="text-2xl flex-shrink-0">✨</span>
@@ -457,7 +540,7 @@ export default function NewRecipePage() {
               </p>
             </div>
           </>
-        ) : (
+        ) : inputMode === "manual" ? (
           <>
             <div className="bg-blue-50 rounded-2xl p-4 flex gap-3">
               <span className="text-2xl flex-shrink-0">📋</span>
@@ -504,7 +587,11 @@ export default function NewRecipePage() {
 
         <button
           onClick={handleParse}
-          disabled={inputMode === "url" ? !url.trim() : !manualText.trim()}
+          disabled={
+            inputMode === "url" ? !url.trim() :
+            inputMode === "image" ? !imageFile :
+            !manualText.trim()
+          }
           className="w-full bg-orange-500 disabled:bg-gray-200 disabled:text-gray-400 text-white py-4 rounded-xl font-bold text-base shadow-md active:scale-95 transition-transform"
         >
           AIでレシピを取り込む
