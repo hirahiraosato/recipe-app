@@ -166,6 +166,42 @@ function guessCategory(name: string): string {
   return "その他";
 }
 
+// HTMLをプレーンテキストに変換（Geminiに送る前のノイズ除去）
+function htmlToText(html: string): string {
+  return html
+    // script / style / noscript / nav / footer / header 系を除去
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, "")
+    .replace(/<nav[\s\S]*?<\/nav>/gi, "")
+    .replace(/<footer[\s\S]*?<\/footer>/gi, "")
+    .replace(/<header[\s\S]*?<\/header>/gi, "")
+    .replace(/<aside[\s\S]*?<\/aside>/gi, "")
+    // aタグはテキストだけ残す
+    .replace(/<a[^>]*>([\s\S]*?)<\/a>/gi, "$1")
+    // brやliはセパレータに
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/h[1-6]>/gi, "\n")
+    .replace(/<\/div>/gi, "\n")
+    // 残りのHTMLタグを除去
+    .replace(/<[^>]+>/g, "")
+    // HTMLエンティティをデコード
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&[a-z]+;/gi, " ")
+    // 空白の正規化
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 30000);
+}
+
 // Geminiでテキストを解析して構造化レシピを返す
 async function parseWithGemini(content: string): Promise<{ data?: object; error?: string }> {
   if (!GEMINI_API_KEY) {
@@ -317,9 +353,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(fromJsonLd);
     }
 
-    // Geminiで解析
-    const truncated = html.slice(0, 40000);
-    const result = await parseWithGemini(truncated);
+    // HTMLをプレーンテキストに変換してからGeminiへ（ノイズ除去）
+    const cleanText = htmlToText(html);
+    const result = await parseWithGemini(cleanText);
     if (result.error) {
       return NextResponse.json({ error: result.error, needsManual: true }, { status: 500 });
     }
