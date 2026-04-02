@@ -238,7 +238,16 @@ export default function NewRecipePage() {
             <div className="space-y-2">
               {parsed.ingredients.map((ing, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="flex-1 text-sm text-gray-700">{ing.name}</span>
+                  <input
+                    value={ing.name}
+                    onChange={(e) => {
+                      const newIngs = [...parsed.ingredients];
+                      newIngs[i] = { ...newIngs[i], name: e.target.value };
+                      setParsed({ ...parsed, ingredients: newIngs });
+                    }}
+                    placeholder="材料名"
+                    className="flex-1 text-sm text-gray-700 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-orange-400"
+                  />
                   <input
                     type="number"
                     value={ing.amount ?? ""}
