@@ -1,14 +1,9 @@
-import BottomNav from "@/components/BottomNav";
+import AppShell from "@/components/AppShell";
 
 export default function MealPlansLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <>
-      <main className="pb-safe">{children}</main>
-      <BottomNav />
-    </>
-  );
+  return <AppShell>{children}</AppShell>;
 }

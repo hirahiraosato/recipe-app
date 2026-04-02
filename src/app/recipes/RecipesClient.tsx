@@ -40,7 +40,7 @@ export default function RecipesClient({
     <div className="min-h-screen bg-gray-50">
       {/* ヘッダー */}
       <header className="bg-white sticky top-0 z-40 border-b border-gray-100">
-        <div className="px-4 py-3">
+        <div className="px-4 py-3 md:max-w-5xl md:mx-auto">
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-xl font-bold text-gray-800">レシピ</h1>
             <Link
@@ -93,7 +93,7 @@ export default function RecipesClient({
       </header>
 
       {/* レシピリスト */}
-      <div className="px-4 py-4">
+      <div className="px-4 py-4 md:max-w-5xl md:mx-auto">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="text-5xl mb-4">🍳</div>
@@ -113,7 +113,7 @@ export default function RecipesClient({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {filtered.map((recipe) => (
               <Link key={recipe.id} href={`/recipes/${recipe.id}`}>
                 <div className="bg-white rounded-2xl overflow-hidden shadow-sm active:scale-95 transition-transform">
