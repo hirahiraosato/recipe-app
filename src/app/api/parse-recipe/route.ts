@@ -154,7 +154,29 @@ ${trimmedContent.slice(0, 30000)}`;
       return { error: `GeminiのレスポンスがJSON形式ではありません: ${text.slice(0, 100)}` };
     }
 
-    const data = JSON.parse(jsonMatch[0]);
+    // JSON文字列内の不正な改行・制御文字をエスケープ
+    const cleanJson = jsonMatch[0]
+      .replace(/[\u0000-\u001F\u007F]/g, (ch) => {
+        // 許可する制御文字のみエスケープ、タブ・改行はスペースに
+        if (ch === '\t') return ' ';
+        if (ch === '\n' || ch === '\r') return ' ';
+        return '';
+      });
+
+    let data;
+    try {
+      data = JSON.parse(cleanJson);
+    } catch {
+      // クリーンアップしても失敗した場合、stepsなし版を試みる
+      try {
+        const withoutSteps = cleanJson.replace(/"steps"\s*:\s*\[[\s\S]*?\](\s*,)?/, '"steps": []');
+        data = JSON.parse(withoutSteps);
+      } catch (e2) {
+        const msg = e2 instanceof Error ? e2.message : String(e2);
+        return { error: `JSONパースエラー: ${msg.slice(0, 150)}` };
+      }
+    }
+
     data.ingredients = Array.isArray(data.ingredients) ? data.ingredients : [];
     data.steps = Array.isArray(data.steps) ? data.steps : [];
     data.servings_base = data.servings_base || 2;
