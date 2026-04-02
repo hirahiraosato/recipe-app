@@ -124,7 +124,12 @@ export default function NewRecipePage() {
         category: ing.category || "その他",
         order_index: i,
       }));
-      await supabase.from("ingredients").insert(ingredients);
+      const { error: ingError } = await supabase.from("ingredients").insert(ingredients);
+      if (ingError) {
+        setError("材料の保存に失敗しました: " + ingError.message);
+        setStep("preview");
+        return;
+      }
     }
 
     if (parsed.steps?.length > 0) {
@@ -133,7 +138,11 @@ export default function NewRecipePage() {
         step_number: s.step_number || i + 1,
         step_text: s.step_text,
       }));
-      await supabase.from("recipe_steps").insert(steps);
+      const { error: stepsError } = await supabase.from("recipe_steps").insert(steps);
+      if (stepsError) {
+        console.error("手順の保存エラー:", stepsError.message);
+        // 手順エラーは致命的でないので続行
+      }
     }
 
     router.push(`/recipes/${recipe.id}`);
