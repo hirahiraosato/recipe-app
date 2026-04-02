@@ -30,6 +30,12 @@ type FamilyMember = {
   birth_date: string | null;
 };
 
+type Step = {
+  id: string;
+  step_number: number;
+  step_text: string;
+};
+
 // 年齢から係数を計算
 function getCoefficient(birthDate: string | null): number {
   if (!birthDate) return 1.0;
@@ -70,10 +76,12 @@ const CATEGORY_ORDER = ["肉類", "魚介類", "野菜", "調味料", "その他
 export default function RecipeDetailClient({
   recipe,
   ingredients,
+  steps,
   familyMembers,
 }: {
   recipe: Recipe;
   ingredients: Ingredient[];
+  steps: Step[];
   familyMembers: FamilyMember[];
 }) {
   const router = useRouter();
@@ -233,6 +241,25 @@ export default function RecipeDetailClient({
             </div>
           )}
         </div>
+
+        {/* 作り方 */}
+        {steps.length > 0 && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <h2 className="text-base font-bold text-gray-800 mb-3">作り方</h2>
+            <div className="space-y-4">
+              {steps.map((step) => (
+                <div key={step.id} className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full text-xs font-bold flex items-center justify-center mt-0.5">
+                    {step.step_number}
+                  </span>
+                  <p className="text-sm text-gray-700 leading-relaxed flex-1">
+                    {step.step_text}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* メモ */}
         {recipe.notes && (

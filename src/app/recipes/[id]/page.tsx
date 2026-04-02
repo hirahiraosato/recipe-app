@@ -28,6 +28,13 @@ export default async function RecipeDetailPage({
     .eq("recipe_id", params.id)
     .order("order_index");
 
+  // 手順取得
+  const { data: steps } = await supabase
+    .from("recipe_steps")
+    .select("*")
+    .eq("recipe_id", params.id)
+    .order("step_number");
+
   // 家族メンバー取得（人数計算用）
   const { data: familyMembers } = await supabase
     .from("family_members")
@@ -39,6 +46,7 @@ export default async function RecipeDetailPage({
     <RecipeDetailClient
       recipe={recipe}
       ingredients={ingredients || []}
+      steps={steps || []}
       familyMembers={familyMembers || []}
     />
   );

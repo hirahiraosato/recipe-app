@@ -12,6 +12,11 @@ type ParsedIngredient = {
   order_index: number;
 };
 
+type ParsedStep = {
+  step_number: number;
+  step_text: string;
+};
+
 type ParsedRecipe = {
   title: string;
   servings_base: number;
@@ -19,6 +24,7 @@ type ParsedRecipe = {
   category: string | null;
   notes: string | null;
   ingredients: ParsedIngredient[];
+  steps: ParsedStep[];
 };
 
 type Step = "input" | "loading" | "preview" | "saving";
@@ -72,6 +78,7 @@ export default function NewRecipePage() {
         }
         return;
       }
+      if (!data.steps) data.steps = [];
       setParsed(data);
       setStep("preview");
     } catch (err: unknown) {
@@ -118,6 +125,15 @@ export default function NewRecipePage() {
         order_index: i,
       }));
       await supabase.from("ingredients").insert(ingredients);
+    }
+
+    if (parsed.steps?.length > 0) {
+      const steps = parsed.steps.map((s, i) => ({
+        recipe_id: recipe.id,
+        step_number: s.step_number || i + 1,
+        step_text: s.step_text,
+      }));
+      await supabase.from("recipe_steps").insert(steps);
     }
 
     router.push(`/recipes/${recipe.id}`);
@@ -237,6 +253,31 @@ export default function NewRecipePage() {
               ))}
             </div>
           </div>
+
+          {parsed.steps && parsed.steps.length > 0 && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <h2 className="text-base font-bold text-gray-800 mb-3">作り方</h2>
+              <div className="space-y-3">
+                {parsed.steps.map((step, i) => (
+                  <div key={i} className="flex gap-3">
+                    <span className="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full text-xs font-bold flex items-center justify-center mt-1">
+                      {step.step_number || i + 1}
+                    </span>
+                    <textarea
+                      value={step.step_text}
+                      onChange={(e) => {
+                        const newSteps = [...parsed.steps];
+                        newSteps[i] = { ...newSteps[i], step_text: e.target.value };
+                        setParsed({ ...parsed, steps: newSteps });
+                      }}
+                      rows={2}
+                      className="flex-1 text-sm text-gray-700 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-orange-400 resize-none"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">

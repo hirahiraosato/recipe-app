@@ -129,6 +129,12 @@ async function parseWithGemini(content: string): Promise<{ data?: object; error?
       "category": "肉類/魚介類/野菜/調味料/その他",
       "order_index": 0
     }
+  ],
+  "steps": [
+    {
+      "step_number": 1,
+      "step_text": "手順の内容"
+    }
   ]
 }
 
@@ -150,6 +156,7 @@ ${trimmedContent.slice(0, 30000)}`;
 
     const data = JSON.parse(jsonMatch[0]);
     data.ingredients = Array.isArray(data.ingredients) ? data.ingredients : [];
+    data.steps = Array.isArray(data.steps) ? data.steps : [];
     data.servings_base = data.servings_base || 2;
     return { data };
   } catch (err) {
