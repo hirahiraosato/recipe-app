@@ -167,8 +167,10 @@ function parseFractionStr(str: string): number | null {
 function parseIngredientString(str: string): { name: string; amount: number | null; unit: string } {
   let s = str.trim();
 
+  // 先頭の「・」をスペースなしでも除去（NHKきょうの料理など）
+  s = s.replace(/^・/, "");
   // グループ記号を除去: "A ", "B ", "☆ " など先頭の1〜2文字+スペース
-  s = s.replace(/^[A-Za-z☆★◎●○※♦♪・【】]\s+/, "");
+  s = s.replace(/^[A-Za-z☆★◎●○※♦♪【】]\s+/, "");
 
   // 最後のスペース（半角・全角）で名前と量+単位を分割
   const lastHalf = s.lastIndexOf(" ");
