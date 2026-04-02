@@ -204,15 +204,18 @@ export default function RecipeDetailClient({
 
         {/* タグ */}
         {recipe.tags?.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {RECIPE_TAGS.filter((t) => recipe.tags.includes(t.id)).map((tag) => (
-              <span
-                key={tag.id}
-                className="flex items-center gap-1 px-3 py-1 bg-orange-50 text-orange-600 rounded-full text-xs font-medium border border-orange-200"
-              >
-                {tag.emoji} {tag.label}
-              </span>
-            ))}
+          <div className="bg-white rounded-2xl px-4 py-3 shadow-sm">
+            <p className="text-xs font-semibold text-gray-400 mb-2">特徴・備考</p>
+            <div className="flex flex-wrap gap-2">
+              {RECIPE_TAGS.filter((t) => recipe.tags.includes(t.id)).map((tag) => (
+                <span
+                  key={tag.id}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-orange-50 text-orange-600 rounded-full text-sm font-medium border border-orange-200"
+                >
+                  {tag.emoji} {tag.label}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 

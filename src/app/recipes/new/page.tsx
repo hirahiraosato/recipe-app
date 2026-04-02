@@ -39,6 +39,7 @@ export default function NewRecipePage() {
   const [url, setUrl] = useState("");
   const [manualText, setManualText] = useState("");
   const [parsed, setParsed] = useState<ParsedRecipe | null>(null);
+  const [aiSuggestedTags, setAiSuggestedTags] = useState<string[]>([]);
   const [error, setError] = useState("");
 
   const handleParse = async () => {
@@ -82,6 +83,7 @@ export default function NewRecipePage() {
       }
       if (!data.steps) data.steps = [];
       if (!data.tags) data.tags = [];
+      setAiSuggestedTags(data.tags.length > 0 ? [...data.tags] : []);
       setParsed(data);
       setStep("preview");
     } catch (err: unknown) {
@@ -305,8 +307,8 @@ export default function NewRecipePage() {
           <div className="bg-white rounded-2xl p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
               <h2 className="text-base font-bold text-gray-800">特徴・備考</h2>
-              {parsed.tags.length > 0 && (
-                <span className="text-xs text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full">AIが候補を選択済み</span>
+              {aiSuggestedTags.length > 0 && (
+                <span className="text-xs text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full">✨ AIが候補を提案</span>
               )}
             </div>
             <div className="flex flex-wrap gap-2">
