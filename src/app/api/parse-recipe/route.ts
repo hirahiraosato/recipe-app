@@ -11,7 +11,7 @@ async function callGemini(prompt: string): Promise<string> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+      generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
     }),
     signal: AbortSignal.timeout(30000),
   });
@@ -251,14 +251,21 @@ ${trimmedContent.slice(0, 30000)}`;
       return { error: "GeminiAPIから空のレスポンスが返りました。" };
     }
 
-    // JSON部分のみ抽出
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    // JSON部分のみ抽出（```json ... ``` ブロックにも対応）
+    let jsonStr: string | null = null;
+    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      jsonStr = codeBlockMatch[1].trim();
+    } else {
+      const objMatch = text.match(/\{[\s\S]*\}/);
+      if (objMatch) jsonStr = objMatch[0];
+    }
+    if (!jsonStr) {
       return { error: `GeminiのレスポンスがJSON形式ではありません: ${text.slice(0, 100)}` };
     }
 
     // JSON文字列内の不正な改行・制御文字をエスケープ
-    const cleanJson = jsonMatch[0]
+    const cleanJson = jsonStr
       .replace(/[\u0000-\u001F\u007F]/g, (ch) => {
         // 許可する制御文字のみエスケープ、タブ・改行はスペースに
         if (ch === '\t') return ' ';
