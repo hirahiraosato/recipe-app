@@ -77,6 +77,28 @@ function extractFromJsonLd(html: string) {
           : null;
       const servings = yieldStr ? parseInt(yieldStr) || 2 : 2;
 
+      // 手順を抽出（recipeInstructions は文字列・HowToStep・配列など様々）
+      const rawInstructions = recipe.recipeInstructions || [];
+      const steps: { step_number: number; step_text: string }[] = [];
+      const instructionList = Array.isArray(rawInstructions) ? rawInstructions : [rawInstructions];
+      let stepNum = 1;
+      for (const inst of instructionList) {
+        if (typeof inst === "string" && inst.trim()) {
+          steps.push({ step_number: stepNum++, step_text: inst.trim() });
+        } else if (inst && typeof inst === "object") {
+          // HowToStep / HowToSection
+          if (inst["@type"] === "HowToSection" && Array.isArray(inst.itemListElement)) {
+            for (const sub of inst.itemListElement) {
+              const text = sub.text || sub.name || "";
+              if (text.trim()) steps.push({ step_number: stepNum++, step_text: text.trim() });
+            }
+          } else {
+            const text = inst.text || inst.name || "";
+            if (text.trim()) steps.push({ step_number: stepNum++, step_text: text.trim() });
+          }
+        }
+      }
+
       return {
         title: recipe.name || "レシピ",
         servings_base: servings,
@@ -84,6 +106,7 @@ function extractFromJsonLd(html: string) {
         category: recipe.recipeCategory || null,
         notes: recipe.description?.slice(0, 200) || null,
         ingredients,
+        steps,
       };
     } catch {
       continue;
