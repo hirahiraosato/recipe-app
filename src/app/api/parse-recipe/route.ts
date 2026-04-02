@@ -72,13 +72,16 @@ function extractFromJsonLd(html: string) {
       const imageUrl = extractImageUrl(html, recipe);
 
       const rawIngredients: string[] = recipe.recipeIngredient || [];
-      const ingredients = rawIngredients.map((ing: string, i: number) => ({
-        name: ing,
-        amount: null,
-        unit: "",
-        category: guessCategory(ing),
-        order_index: i,
-      }));
+      const ingredients = rawIngredients.map((ing: string, i: number) => {
+        const parsed = parseIngredientString(ing);
+        return {
+          name: parsed.name,
+          amount: parsed.amount,
+          unit: parsed.unit,
+          category: guessCategory(parsed.name),
+          order_index: i,
+        };
+      });
 
       let cookingTime = null;
       const timeStr = recipe.totalTime || recipe.cookTime;
@@ -142,6 +145,62 @@ function extractFromJsonLd(html: string) {
     }
   }
   return null;
+}
+
+// 分数文字列を数値に変換
+function parseFractionStr(str: string): number | null {
+  if (!str) return null;
+  // "1と1/2" 形式
+  const mixed = str.match(/^(\d+)と(\d+)\/(\d+)$/);
+  if (mixed) return parseInt(mixed[1]) + parseInt(mixed[2]) / parseInt(mixed[3]);
+  // "1/2" 形式
+  const frac = str.match(/^(\d+)\/(\d+)$/);
+  if (frac) {
+    const d = parseInt(frac[2]);
+    return d !== 0 ? parseInt(frac[1]) / d : null;
+  }
+  const n = parseFloat(str);
+  return isNaN(n) ? null : n;
+}
+
+// 材料文字列を名前・量・単位に分解
+function parseIngredientString(str: string): { name: string; amount: number | null; unit: string } {
+  let s = str.trim();
+
+  // グループ記号を除去: "A ", "B ", "☆ " など先頭の1〜2文字+スペース
+  s = s.replace(/^[A-Za-z☆★◎●○※♦♪・【】]\s+/, "");
+
+  // 最後のスペース（半角・全角）で名前と量+単位を分割
+  const lastHalf = s.lastIndexOf(" ");
+  const lastFull = s.lastIndexOf("\u3000");
+  const lastSpaceIdx = Math.max(lastHalf, lastFull);
+
+  if (lastSpaceIdx === -1) return { name: s, amount: null, unit: "" };
+
+  const name = s.slice(0, lastSpaceIdx).trim();
+  const quantStr = s.slice(lastSpaceIdx + 1).trim();
+
+  // 「少々・適量・適宜」等のテキスト単位
+  if (/^(少々|適量|適宜|少量|ひとつまみ|少し|お好みで|各適[量宜]|好みで|ふたつまみ)/.test(quantStr)) {
+    return { name, amount: null, unit: quantStr };
+  }
+
+  // 「大さじ2」「小さじ1/2」「カップ1」などの 単位+数値 パターン
+  const unitFirstMatch = quantStr.match(/^(大さじ|小さじ|カップ|合)\s*(\d+(?:\/\d+)?(?:\.\d+)?(?:と\d+\/\d+)?)(.*)$/);
+  if (unitFirstMatch) {
+    const unit = unitFirstMatch[1] + (unitFirstMatch[3] ? unitFirstMatch[3].replace(/[（(].*?[）)]/g, "").trim() : "");
+    return { name, amount: parseFractionStr(unitFirstMatch[2]), unit };
+  }
+
+  // 「300g」「2個（400g）」「1/2かけ」などの 数値+単位 パターン
+  const numFirstMatch = quantStr.match(/^(\d+(?:\/\d+)?(?:\.\d+)?)\s*([^\d（(（].*)?/);
+  if (numFirstMatch && numFirstMatch[1]) {
+    const unit = (numFirstMatch[2] || "").replace(/[（(].*?[）)]/g, "").trim();
+    return { name, amount: parseFractionStr(numFirstMatch[1]), unit };
+  }
+
+  // パース失敗 → 文字列全体を名前として返す
+  return { name: s, amount: null, unit: "" };
 }
 
 function guessTags(text: string): string[] {
