@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { RECIPE_TAGS } from "@/lib/recipeTags";
 
 type Ingredient = {
   id?: string;
@@ -27,6 +28,7 @@ type Recipe = {
   category: string | null;
   notes: string | null;
   source_url: string | null;
+  tags: string[];
 };
 
 export default function EditRecipeClient({
@@ -47,6 +49,10 @@ export default function EditRecipeClient({
   const [cookingTime, setCookingTime] = useState<number | null>(recipe.cooking_time_minutes);
   const [category, setCategory] = useState(recipe.category || "");
   const [notes, setNotes] = useState(recipe.notes || "");
+  const [tags, setTags] = useState<string[]>(recipe.tags || []);
+
+  const toggleTag = (id: string) =>
+    setTags((prev) => prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]);
 
   const [ingredients, setIngredients] = useState<Ingredient[]>(
     initialIngredients.length > 0
@@ -92,6 +98,7 @@ export default function EditRecipeClient({
         cooking_time_minutes: cookingTime,
         category: category || null,
         notes: notes || null,
+        tags,
       })
       .eq("id", recipe.id);
 
@@ -305,6 +312,31 @@ export default function EditRecipeClient({
           >
             + 手順を追加
           </button>
+        </div>
+
+        {/* タグ */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <h2 className="text-base font-bold text-gray-800 mb-3">特徴・備考</h2>
+          <div className="flex flex-wrap gap-2">
+            {RECIPE_TAGS.map((tag) => {
+              const selected = tags.includes(tag.id);
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => toggleTag(tag.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                    selected
+                      ? "bg-orange-500 text-white border-orange-500"
+                      : "bg-white text-gray-600 border-gray-200"
+                  }`}
+                >
+                  <span>{tag.emoji}</span>
+                  <span>{tag.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* メモ */}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { RECIPE_TAGS } from "@/lib/recipeTags";
 
 type Recipe = {
   id: string;
@@ -13,6 +14,7 @@ type Recipe = {
   category: string | null;
   cooking_time_minutes: number | null;
   notes: string | null;
+  tags: string[];
 };
 
 type Ingredient = {
@@ -199,6 +201,20 @@ export default function RecipeDetailClient({
             )}
           </div>
         </div>
+
+        {/* タグ */}
+        {recipe.tags?.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {RECIPE_TAGS.filter((t) => recipe.tags.includes(t.id)).map((tag) => (
+              <span
+                key={tag.id}
+                className="flex items-center gap-1 px-3 py-1 bg-orange-50 text-orange-600 rounded-full text-xs font-medium border border-orange-200"
+              >
+                {tag.emoji} {tag.label}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* 材料（家族人数で計算） */}
         <div className="bg-white rounded-2xl p-4 shadow-sm">
