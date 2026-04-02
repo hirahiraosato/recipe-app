@@ -20,6 +20,7 @@ type ParsedStep = {
 
 type ParsedRecipe = {
   title: string;
+  image_url: string | null;
   servings_base: number;
   cooking_time_minutes: number | null;
   category: string | null;
@@ -83,6 +84,7 @@ export default function NewRecipePage() {
       }
       if (!data.steps) data.steps = [];
       if (!data.tags) data.tags = [];
+      if (!data.image_url) data.image_url = null;
       setAiSuggestedTags(data.tags.length > 0 ? [...data.tags] : []);
       setParsed(data);
       setStep("preview");
@@ -105,6 +107,7 @@ export default function NewRecipePage() {
       .insert({
         user_id: user.id,
         title: parsed.title,
+        image_url: parsed.image_url || null,
         source_url: inputMode === "url" ? url : null,
         servings_base: parsed.servings_base || 2,
         cooking_time_minutes: parsed.cooking_time_minutes,
@@ -197,6 +200,14 @@ export default function NewRecipePage() {
         </header>
 
         <div className="px-4 py-4 space-y-4">
+          {/* 画像プレビュー */}
+          {parsed.image_url && (
+            <div className="rounded-2xl overflow-hidden shadow-sm aspect-video bg-orange-50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={parsed.image_url} alt={parsed.title} className="w-full h-full object-cover" />
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl p-4 shadow-sm">
             <input
               value={parsed.title}

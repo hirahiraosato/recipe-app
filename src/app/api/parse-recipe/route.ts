@@ -25,6 +25,26 @@ async function callGemini(prompt: string): Promise<string> {
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 }
 
+// 画像URLを抽出（JSON-LD → OGP の順で試みる）
+function extractImageUrl(html: string, recipe?: Record<string, unknown>): string | null {
+  // JSON-LD の image フィールド
+  if (recipe) {
+    const img = recipe.image;
+    if (typeof img === "string" && img.startsWith("http")) return img;
+    if (Array.isArray(img)) {
+      const first = img[0];
+      if (typeof first === "string" && first.startsWith("http")) return first;
+      if (first && typeof first === "object" && typeof (first as Record<string, unknown>).url === "string") return (first as Record<string, unknown>).url as string;
+    }
+    if (img && typeof img === "object" && typeof (img as Record<string, unknown>).url === "string") return (img as Record<string, unknown>).url as string;
+  }
+  // OGP meta tag
+  const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+  if (ogMatch) return ogMatch[1];
+  return null;
+}
+
 // JSON-LD からレシピを抽出
 function extractFromJsonLd(html: string) {
   const scriptMatches = html.match(
@@ -49,6 +69,7 @@ function extractFromJsonLd(html: string) {
         recipe = data.find((item: { "@type": string }) => item?.["@type"] === "Recipe");
       }
       if (!recipe) continue;
+      const imageUrl = extractImageUrl(html, recipe);
 
       const rawIngredients: string[] = recipe.recipeIngredient || [];
       const ingredients = rawIngredients.map((ing: string, i: number) => ({
@@ -107,6 +128,7 @@ function extractFromJsonLd(html: string) {
 
       return {
         title: recipe.name || "レシピ",
+        image_url: imageUrl,
         servings_base: servings,
         cooking_time_minutes: cookingTime,
         category: recipe.recipeCategory || null,
@@ -301,7 +323,9 @@ export async function POST(request: NextRequest) {
     if (result.error) {
       return NextResponse.json({ error: result.error, needsManual: true }, { status: 500 });
     }
-    return NextResponse.json(result.data);
+    // OGP画像をGemini結果に追加
+    const ogImage = extractImageUrl(html);
+    return NextResponse.json({ ...result.data, image_url: ogImage });
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error("parse-recipe error:", errMsg);
