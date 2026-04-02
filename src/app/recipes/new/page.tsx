@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { RECIPE_TAGS } from "@/lib/recipeTags";
 import { parseFraction, formatAmount } from "@/lib/fractionUtils";
+import { RECIPE_CATEGORIES } from "@/lib/recipeCategories";
 
 type ParsedIngredient = {
   name: string;
@@ -244,12 +245,16 @@ export default function NewRecipePage() {
               </div>
               <div className="text-center">
                 <p className="text-xs text-gray-400 mb-1">カテゴリ</p>
-                <input
+                <select
                   value={parsed.category || ""}
-                  onChange={(e) => setParsed({ ...parsed, category: e.target.value })}
-                  placeholder="主菜"
-                  className="w-full text-center text-base font-semibold text-gray-700 border border-gray-200 rounded-lg py-1 focus:outline-none focus:border-orange-400"
-                />
+                  onChange={(e) => setParsed({ ...parsed, category: e.target.value || null })}
+                  className="w-full text-center text-sm font-semibold text-gray-700 border border-gray-200 rounded-lg py-1 focus:outline-none focus:border-orange-400 bg-white"
+                >
+                  <option value="">未選択</option>
+                  {RECIPE_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

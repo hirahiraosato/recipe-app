@@ -221,7 +221,7 @@ async function parseWithGemini(content: string): Promise<{ data?: object; error?
   "title": "レシピ名",
   "servings_base": 人数の数値（例: 2）,
   "cooking_time_minutes": 調理時間の数値または null,
-  "category": "主菜/副菜/汁物/デザート/その他 または null",
+  "category": "次の選択肢から最も近いものを選択（一致しなければ null）: 主菜（肉）/主菜（魚）/主菜（卵・豆腐）/副菜/汁物・スープ/ご飯・丼/麺・パスタ/パン・粉もの/サラダ/お菓子・デザート/その他",
   "notes": "備考または null",
   "tags": ["該当するタグIDのみ配列で。選択肢: freezable(冷凍保存OK), microwave(レンジ使用), rice_cooker(炊飯器使用), baby(乳児とりわけ可), make_ahead(作り置き), quick(時短), oven(オーブン使用), no_heat(加熱不要)"],
   "ingredients": [
