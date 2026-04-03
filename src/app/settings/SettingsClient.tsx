@@ -152,6 +152,7 @@ export default function SettingsClient({
   const avatarLetter = (displayName || user.email).charAt(0).toUpperCase();
 
   return (
+    <>
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* ヘッダー */}
       <header className="bg-white sticky top-0 z-40 border-b border-gray-100 px-4 py-3">
@@ -315,6 +316,7 @@ export default function SettingsClient({
         </section>
 
       </div>
+    </div>
 
       {/* ===== 表示名編集モーダル ===== */}
       {showEditProfile && (
@@ -481,6 +483,6 @@ export default function SettingsClient({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
