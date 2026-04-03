@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-export async function upsertMealPlan(
+export async function addMealPlan(
   plannedDate: string,
   mealType: "breakfast" | "lunch" | "dinner",
   recipeId: string
@@ -14,10 +14,7 @@ export async function upsertMealPlan(
 
   const { data, error } = await supabase
     .from("meal_plans")
-    .upsert(
-      { user_id: user.id, planned_date: plannedDate, meal_type: mealType, recipe_id: recipeId },
-      { onConflict: "user_id,planned_date,meal_type" }
-    )
+    .insert({ user_id: user.id, planned_date: plannedDate, meal_type: mealType, recipe_id: recipeId })
     .select(`id, planned_date, meal_type, note, recipes (id, title, image_url, cooking_time_minutes)`)
     .single();
 
