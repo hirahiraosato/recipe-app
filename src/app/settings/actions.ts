@@ -7,6 +7,7 @@ export async function addFamilyMember(data: {
   name: string;
   birth_date: string;
   role: string | null;
+  custom_coefficient: number | null;
 }) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -25,7 +26,7 @@ export async function addFamilyMember(data: {
 
 export async function updateFamilyMember(
   id: string,
-  data: { name: string; birth_date: string; role: string | null }
+  data: { name: string; birth_date: string; role: string | null; custom_coefficient: number | null }
 ) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();

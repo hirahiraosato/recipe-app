@@ -10,6 +10,7 @@ type FamilyMember = {
   name: string;
   birth_date: string;
   role: string | null;
+  custom_coefficient: number | null;
 };
 
 type User = {
@@ -18,7 +19,7 @@ type User = {
   display_name: string | null;
 };
 
-function getAgeCoefficient(birthDate: string): number {
+function getAgeCoefficientFromBirth(birthDate: string): number {
   const today = new Date();
   const birth = new Date(birthDate);
   const ageInMonths =
@@ -31,6 +32,11 @@ function getAgeCoefficient(birthDate: string): number {
   if (ageInYears < 6) return 0.5;
   if (ageInYears < 13) return 0.7;
   return 1.0;
+}
+
+function getAgeCoefficient(member: FamilyMember): number {
+  if (member.custom_coefficient != null) return member.custom_coefficient;
+  return getAgeCoefficientFromBirth(member.birth_date);
 }
 
 function getAgeLabel(birthDate: string): string {
@@ -57,6 +63,7 @@ export default function SettingsClient({
   const [newName, setNewName] = useState("");
   const [newBirthDate, setNewBirthDate] = useState("");
   const [newRole, setNewRole] = useState("");
+  const [newCustomCoef, setNewCustomCoef] = useState<number | null>(null);
   const [addError, setAddError] = useState("");
 
   // メンバー編集
@@ -64,6 +71,7 @@ export default function SettingsClient({
   const [editName, setEditName] = useState("");
   const [editBirthDate, setEditBirthDate] = useState("");
   const [editRole, setEditRole] = useState("");
+  const [editCustomCoef, setEditCustomCoef] = useState<number | null>(null);
 
   // 表示名編集
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -76,7 +84,7 @@ export default function SettingsClient({
   const supabase = createClient();
 
   const totalServings = familyMembers.reduce(
-    (sum, m) => sum + getAgeCoefficient(m.birth_date),
+    (sum, m) => sum + getAgeCoefficient(m),
     0
   );
 
@@ -104,6 +112,7 @@ export default function SettingsClient({
       name: newName,
       birth_date: newBirthDate,
       role: newRole || null,
+      custom_coefficient: newCustomCoef,
     });
     if (result.error) {
       setAddError(`エラー: ${result.error}`);
@@ -114,6 +123,7 @@ export default function SettingsClient({
       setNewName("");
       setNewBirthDate("");
       setNewRole("");
+      setNewCustomCoef(null);
       setAddError("");
       setShowAddMember(false);
     }
@@ -125,6 +135,7 @@ export default function SettingsClient({
     setEditName(member.name);
     setEditBirthDate(member.birth_date);
     setEditRole(member.role ?? "");
+    setEditCustomCoef(member.custom_coefficient ?? null);
   };
 
   // ---- メンバー編集保存 ----
@@ -134,6 +145,7 @@ export default function SettingsClient({
       name: editName,
       birth_date: editBirthDate,
       role: editRole || null,
+      custom_coefficient: editCustomCoef,
     });
     if (result.data) {
       setFamilyMembers((prev) =>
@@ -253,8 +265,11 @@ export default function SettingsClient({
                   <p className="text-xs text-gray-400">
                     {getAgeLabel(member.birth_date)} ·{" "}
                     <span className="text-orange-400">
-                      {getAgeCoefficient(member.birth_date)}人前
+                      {getAgeCoefficient(member)}人前
                     </span>
+                    {member.custom_coefficient != null && (
+                      <span className="ml-1 text-xs text-blue-400">（カスタム）</span>
+                    )}
                   </p>
                 </div>
                 <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -301,6 +316,11 @@ export default function SettingsClient({
                   <span className="font-medium text-orange-500">{coef}</span>
                 </div>
               ))}
+            </div>
+            <div className="mt-3 pt-3 border-t border-gray-50">
+              <p className="text-xs text-gray-400">
+                大食いのメンバーは各自の設定で 0.8 〜 2.0人前 に変更できます。
+              </p>
             </div>
           </div>
         </section>
@@ -414,6 +434,31 @@ export default function SettingsClient({
                     className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
                   />
                 </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">人前設定</label>
+                  <p className="text-xs text-gray-400 mb-2">未設定の場合は年齢から自動計算されます</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[null, 0.8, 1.0, 1.2, 1.5, 2.0].map((coef) => (
+                      <button
+                        key={String(coef)}
+                        type="button"
+                        onClick={() => setNewCustomCoef(coef)}
+                        className={`py-2 rounded-xl text-sm font-medium border transition-colors ${
+                          newCustomCoef === coef
+                            ? "bg-orange-500 text-white border-orange-500"
+                            : "bg-white text-gray-600 border-gray-200 active:bg-gray-50"
+                        } ${coef === null ? "col-span-2" : ""}`}
+                      >
+                        {coef === null ? "自動（年齢）" : `${coef}人前`}
+                      </button>
+                    ))}
+                  </div>
+                  {newCustomCoef != null && (
+                    <p className="text-xs text-orange-500 mt-1.5">
+                      → {newCustomCoef}人前 に固定されます
+                    </p>
+                  )}
+                </div>
                 {(!newName || !newBirthDate) && (
                   <p className="text-xs text-gray-400">※ 名前と生年月日を入力してください</p>
                 )}
@@ -474,6 +519,31 @@ export default function SettingsClient({
                     onChange={(e) => setEditRole(e.target.value)}
                     className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
                   />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">人前設定</label>
+                  <p className="text-xs text-gray-400 mb-2">未設定の場合は年齢から自動計算されます</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[null, 0.8, 1.0, 1.2, 1.5, 2.0].map((coef) => (
+                      <button
+                        key={String(coef)}
+                        type="button"
+                        onClick={() => setEditCustomCoef(coef)}
+                        className={`py-2 rounded-xl text-sm font-medium border transition-colors ${
+                          editCustomCoef === coef
+                            ? "bg-orange-500 text-white border-orange-500"
+                            : "bg-white text-gray-600 border-gray-200 active:bg-gray-50"
+                        } ${coef === null ? "col-span-2" : ""}`}
+                      >
+                        {coef === null ? "自動（年齢）" : `${coef}人前`}
+                      </button>
+                    ))}
+                  </div>
+                  {editCustomCoef != null && (
+                    <p className="text-xs text-orange-500 mt-1.5">
+                      → {editCustomCoef}人前 に固定されます
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={handleSaveEdit}
