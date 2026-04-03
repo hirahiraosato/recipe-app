@@ -19,7 +19,11 @@ export default async function SettingsPage() {
 
   return (
     <SettingsClient
-      user={{ email: user.email ?? "", id: user.id }}
+      user={{
+        email: user.email ?? "",
+        id: user.id,
+        display_name: (user.user_metadata?.display_name as string | null) ?? null,
+      }}
       initialFamilyMembers={familyMembers ?? []}
     />
   );

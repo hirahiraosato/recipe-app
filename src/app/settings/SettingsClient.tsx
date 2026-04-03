@@ -56,6 +56,7 @@ export default function SettingsClient({
   const [newName, setNewName] = useState("");
   const [newBirthDate, setNewBirthDate] = useState("");
   const [newRole, setNewRole] = useState("");
+  const [addError, setAddError] = useState("");
 
   // メンバー編集
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
@@ -97,16 +98,22 @@ export default function SettingsClient({
   // ---- メンバー追加 ----
   const handleAddMember = async () => {
     if (!newName || !newBirthDate) return;
+    setAddError("");
     const { data, error } = await supabase
       .from("family_members")
       .insert({ name: newName, birth_date: newBirthDate, role: newRole || null })
       .select()
       .single();
-    if (!error && data) {
+    if (error) {
+      setAddError(`エラー: ${error.message}`);
+      return;
+    }
+    if (data) {
       setFamilyMembers((prev) => [...prev, data]);
       setNewName("");
       setNewBirthDate("");
       setNewRole("");
+      setAddError("");
       setShowAddMember(false);
     }
   };
@@ -409,6 +416,9 @@ export default function SettingsClient({
                 </div>
                 {(!newName || !newBirthDate) && (
                   <p className="text-xs text-gray-400">※ 名前と生年月日を入力してください</p>
+                )}
+                {addError && (
+                  <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{addError}</p>
                 )}
                 <button
                   onClick={handleAddMember}
