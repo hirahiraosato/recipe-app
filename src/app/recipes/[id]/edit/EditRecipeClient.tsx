@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { RECIPE_TAGS } from "@/lib/recipeTags";
 import { parseFraction, formatAmount } from "@/lib/fractionUtils";
 import { RECIPE_CATEGORIES } from "@/lib/recipeCategories";
+import RecipeImagePicker from "@/components/RecipeImagePicker";
+import { uploadRecipeImage } from "@/lib/imageUpload";
 
 type Ingredient = {
   id?: string;
@@ -34,6 +36,7 @@ type Step = {
 type Recipe = {
   id: string;
   title: string;
+  image_url: string | null;
   servings_base: number;
   cooking_time_minutes: number | null;
   category: string | null;
@@ -54,6 +57,11 @@ export default function EditRecipeClient({
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // 画像
+  const [imageUrl, setImageUrl] = useState<string | null>(recipe.image_url);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const [title, setTitle] = useState(recipe.title);
   const [servings, setServings] = useState(recipe.servings_base);
@@ -103,11 +111,25 @@ export default function EditRecipeClient({
 
     const supabase = createClient();
 
+    // 新しい画像があればアップロード
+    let finalImageUrl = imageUrl;
+    if (imageFile) {
+      try {
+        finalImageUrl = await uploadRecipeImage(imageFile, recipe.id);
+      } catch (uploadErr) {
+        const msg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+        setError(msg);
+        setSaving(false);
+        return;
+      }
+    }
+
     // レシピ本体を更新
     const { error: recipeError } = await supabase
       .from("recipes")
       .update({
         title: title.trim(),
+        image_url: finalImageUrl,
         servings_base: servings,
         cooking_time_minutes: cookingTime,
         category: category || null,
@@ -172,7 +194,7 @@ export default function EditRecipeClient({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-40 md:pb-24">
       <header className="bg-white sticky top-0 z-40 border-b border-gray-100">
         <div className="px-4 py-3 flex items-center gap-3">
           <button onClick={() => router.back()} className="text-gray-500 p-1 -ml-1">
@@ -185,6 +207,21 @@ export default function EditRecipeClient({
       </header>
 
       <div className="px-4 py-4 space-y-4">
+        {/* 画像 */}
+        <RecipeImagePicker
+          currentUrl={imageUrl}
+          previewUrl={imagePreview}
+          onFileSelect={(file, preview) => {
+            setImageFile(file);
+            setImagePreview(preview);
+          }}
+          onRemove={() => {
+            setImageFile(null);
+            setImagePreview(null);
+            setImageUrl(null);
+          }}
+        />
+
         {/* 基本情報 */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div>
@@ -377,7 +414,7 @@ export default function EditRecipeClient({
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3">
+      <div className="fixed bottom-16 md:bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-40">
         <button
           onClick={handleSave}
           className="w-full bg-orange-500 text-white py-3.5 rounded-xl font-bold text-base shadow-md active:scale-95 transition-transform"

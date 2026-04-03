@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { RECIPE_TAGS } from "@/lib/recipeTags";
 import { parseFraction, formatAmount } from "@/lib/fractionUtils";
 import { RECIPE_CATEGORIES } from "@/lib/recipeCategories";
+import RecipeImagePicker from "@/components/RecipeImagePicker";
+import { uploadRecipeImage } from "@/lib/imageUpload";
 
 type ParsedIngredient = {
   name: string;
@@ -43,6 +45,9 @@ export default function NewRecipePage() {
   const [manualText, setManualText] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  // 確認画面で追加・差し替えする画像
+  const [confirmImageFile, setConfirmImageFile] = useState<File | null>(null);
+  const [confirmImagePreview, setConfirmImagePreview] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedRecipe | null>(null);
   const [aiSuggestedTags, setAiSuggestedTags] = useState<string[]>([]);
   const [error, setError] = useState("");
@@ -131,12 +136,15 @@ export default function NewRecipePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
 
+    // 確認画面で選択した画像をアップロード（仮IDで先行保存後にURLを更新）
+    let imageUrl = parsed.image_url || null;
+
     const { data: recipe, error: recipeError } = await supabase
       .from("recipes")
       .insert({
         user_id: user.id,
         title: parsed.title,
-        image_url: parsed.image_url || null,
+        image_url: imageUrl,
         source_url: inputMode === "url" ? url : null,
         servings_base: parsed.servings_base || 2,
         cooking_time_minutes: parsed.cooking_time_minutes,
@@ -151,6 +159,17 @@ export default function NewRecipePage() {
       setError("保存に失敗しました: " + recipeError.message);
       setStep("preview");
       return;
+    }
+
+    // 確認画面で画像が選択されていればアップロードして更新
+    if (confirmImageFile) {
+      try {
+        const uploadedUrl = await uploadRecipeImage(confirmImageFile, recipe.id);
+        await supabase.from("recipes").update({ image_url: uploadedUrl }).eq("id", recipe.id);
+      } catch (uploadErr) {
+        console.error("画像アップロード失敗（レシピは保存済み）:", uploadErr);
+        // 画像失敗はレシピ保存を止めない
+      }
     }
 
     if (parsed.ingredients?.length > 0) {
@@ -229,13 +248,20 @@ export default function NewRecipePage() {
         </header>
 
         <div className="px-4 py-4 space-y-4">
-          {/* 画像プレビュー */}
-          {parsed.image_url && (
-            <div className="rounded-2xl overflow-hidden shadow-sm aspect-video bg-orange-50">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={parsed.image_url} alt={parsed.title} className="w-full h-full object-cover" />
-            </div>
-          )}
+          {/* 画像 */}
+          <RecipeImagePicker
+            currentUrl={parsed.image_url}
+            previewUrl={confirmImagePreview}
+            onFileSelect={(file, preview) => {
+              setConfirmImageFile(file);
+              setConfirmImagePreview(preview);
+            }}
+            onRemove={() => {
+              setConfirmImageFile(null);
+              setConfirmImagePreview(null);
+              setParsed({ ...parsed, image_url: null });
+            }}
+          />
 
           <div className="bg-white rounded-2xl p-4 shadow-sm">
             <input
