@@ -321,11 +321,8 @@ export default function SettingsClient({
       {/* ===== 表示名編集モーダル ===== */}
       {showEditProfile && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-end">
-          <div
-            className="bg-white rounded-t-3xl w-full px-4 pt-5"
-            style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
-          >
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-white rounded-t-3xl w-full flex flex-col" style={{ maxHeight: "85vh" }}>
+            <div className="flex items-center justify-between px-4 pt-5 pb-4 flex-shrink-0 border-b border-gray-50">
               <h3 className="text-lg font-bold text-gray-800">プロフィール編集</h3>
               <button onClick={() => setShowEditProfile(false)} className="text-gray-400 p-1">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -333,33 +330,35 @@ export default function SettingsClient({
                 </svg>
               </button>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">メールアドレス</label>
-                <div className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm text-gray-400">
-                  {user.email}
+            <div className="overflow-y-auto flex-1 px-4 py-4" style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">メールアドレス</label>
+                  <div className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm text-gray-400">
+                    {user.email}
+                  </div>
                 </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">表示名</label>
+                  <input
+                    type="text"
+                    placeholder="例: さとみ"
+                    value={displayNameInput}
+                    onChange={(e) => setDisplayNameInput(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  />
+                </div>
+                {profileError && (
+                  <p className="text-xs text-red-500">{profileError}</p>
+                )}
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={savingProfile}
+                  className="w-full bg-orange-500 text-white py-4 rounded-2xl font-semibold text-base shadow-md disabled:opacity-50 active:scale-95 transition-transform"
+                >
+                  {savingProfile ? "保存中..." : "保存する"}
+                </button>
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">表示名</label>
-                <input
-                  type="text"
-                  placeholder="例: さとみ"
-                  value={displayNameInput}
-                  onChange={(e) => setDisplayNameInput(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                />
-              </div>
-              {profileError && (
-                <p className="text-xs text-red-500">{profileError}</p>
-              )}
-              <button
-                onClick={handleSaveProfile}
-                disabled={savingProfile}
-                className="w-full bg-orange-500 text-white py-4 rounded-2xl font-semibold text-base shadow-md disabled:opacity-50 active:scale-95 transition-transform"
-              >
-                {savingProfile ? "保存中..." : "保存する"}
-              </button>
             </div>
           </div>
         </div>
@@ -368,11 +367,8 @@ export default function SettingsClient({
       {/* ===== メンバー追加モーダル ===== */}
       {showAddMember && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-end">
-          <div
-            className="bg-white rounded-t-3xl w-full px-4 pt-5"
-            style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
-          >
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-white rounded-t-3xl w-full flex flex-col" style={{ maxHeight: "85vh" }}>
+            <div className="flex items-center justify-between px-4 pt-5 pb-4 flex-shrink-0 border-b border-gray-50">
               <h3 className="text-lg font-bold text-gray-800">メンバーを追加</h3>
               <button onClick={() => setShowAddMember(false)} className="text-gray-400 p-1">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -380,43 +376,48 @@ export default function SettingsClient({
                 </svg>
               </button>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">名前</label>
-                <input
-                  type="text"
-                  placeholder="例: たろう"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                />
+            <div className="overflow-y-auto flex-1 px-4 py-4" style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">名前 <span className="text-red-400">*</span></label>
+                  <input
+                    type="text"
+                    placeholder="例: たろう"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">生年月日 <span className="text-red-400">*</span></label>
+                  <input
+                    type="date"
+                    value={newBirthDate}
+                    onChange={(e) => setNewBirthDate(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">役割（任意）</label>
+                  <input
+                    type="text"
+                    placeholder="例: パパ、ママ"
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  />
+                </div>
+                {(!newName || !newBirthDate) && (
+                  <p className="text-xs text-gray-400">※ 名前と生年月日を入力してください</p>
+                )}
+                <button
+                  onClick={handleAddMember}
+                  disabled={!newName || !newBirthDate}
+                  className="w-full bg-orange-500 text-white py-4 rounded-2xl font-semibold text-base shadow-md disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-transform"
+                >
+                  追加する
+                </button>
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">生年月日</label>
-                <input
-                  type="date"
-                  value={newBirthDate}
-                  onChange={(e) => setNewBirthDate(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">役割（任意）</label>
-                <input
-                  type="text"
-                  placeholder="例: パパ、ママ"
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                />
-              </div>
-              <button
-                onClick={handleAddMember}
-                disabled={!newName || !newBirthDate}
-                className="w-full bg-orange-500 text-white py-4 rounded-2xl font-semibold text-base shadow-md disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform"
-              >
-                追加する
-              </button>
             </div>
           </div>
         </div>
@@ -425,11 +426,8 @@ export default function SettingsClient({
       {/* ===== メンバー編集モーダル ===== */}
       {editingMember && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-end">
-          <div
-            className="bg-white rounded-t-3xl w-full px-4 pt-5"
-            style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
-          >
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-white rounded-t-3xl w-full flex flex-col" style={{ maxHeight: "85vh" }}>
+            <div className="flex items-center justify-between px-4 pt-5 pb-4 flex-shrink-0 border-b border-gray-50">
               <h3 className="text-lg font-bold text-gray-800">メンバーを編集</h3>
               <button onClick={() => setEditingMember(null)} className="text-gray-400 p-1">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -437,48 +435,50 @@ export default function SettingsClient({
                 </svg>
               </button>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">名前</label>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                />
+            <div className="overflow-y-auto flex-1 px-4 py-4" style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">名前</label>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">生年月日</label>
+                  <input
+                    type="date"
+                    value={editBirthDate}
+                    onChange={(e) => setEditBirthDate(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">役割（任意）</label>
+                  <input
+                    type="text"
+                    placeholder="例: パパ、ママ"
+                    value={editRole}
+                    onChange={(e) => setEditRole(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  />
+                </div>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={!editName || !editBirthDate}
+                  className="w-full bg-orange-500 text-white py-4 rounded-2xl font-semibold text-base shadow-md disabled:opacity-40 active:scale-95 transition-transform"
+                >
+                  保存する
+                </button>
+                <button
+                  onClick={() => handleDeleteMember(editingMember.id)}
+                  className="w-full py-3 rounded-2xl text-sm font-medium text-red-500 border border-red-200 active:bg-red-50 transition-colors"
+                >
+                  このメンバーを削除する
+                </button>
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">生年月日</label>
-                <input
-                  type="date"
-                  value={editBirthDate}
-                  onChange={(e) => setEditBirthDate(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">役割（任意）</label>
-                <input
-                  type="text"
-                  placeholder="例: パパ、ママ"
-                  value={editRole}
-                  onChange={(e) => setEditRole(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                />
-              </div>
-              <button
-                onClick={handleSaveEdit}
-                disabled={!editName || !editBirthDate}
-                className="w-full bg-orange-500 text-white py-4 rounded-2xl font-semibold text-base shadow-md disabled:opacity-50 active:scale-95 transition-transform"
-              >
-                保存する
-              </button>
-              <button
-                onClick={() => handleDeleteMember(editingMember.id)}
-                className="w-full py-3 rounded-2xl text-sm font-medium text-red-500 border border-red-200 active:bg-red-50 transition-colors"
-              >
-                このメンバーを削除する
-              </button>
             </div>
           </div>
         </div>
