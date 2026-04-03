@@ -254,6 +254,10 @@ ${slotsDescription}
     }
   );
 
+  if (res.status === 429) {
+    return { error: "AI API\u306E\u5229\u7528\u4E0A\u9650\u306B\u9054\u3057\u307E\u3057\u305F\u30011\u5206\u7A0B\u5EA6\u5F85\u3063\u3066\u304B\u3089\u518D\u8A66\u884C\u3057\u3066\u304F\u3060\u3055\u3044\u3002" };
+  }
+
   if (!res.ok) {
     const errText = await res.text();
     return { error: `Gemini APIエラー: ${res.status} ${errText.slice(0, 200)}` };
