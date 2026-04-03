@@ -318,7 +318,7 @@ export default function SettingsClient({
 
       {/* ===== 表示名編集モーダル ===== */}
       {showEditProfile && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-end">
           <div
             className="bg-white rounded-t-3xl w-full px-4 pt-5"
             style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
@@ -365,7 +365,7 @@ export default function SettingsClient({
 
       {/* ===== メンバー追加モーダル ===== */}
       {showAddMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-end">
           <div
             className="bg-white rounded-t-3xl w-full px-4 pt-5"
             style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
@@ -422,7 +422,7 @@ export default function SettingsClient({
 
       {/* ===== メンバー編集モーダル ===== */}
       {editingMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-end">
           <div
             className="bg-white rounded-t-3xl w-full px-4 pt-5"
             style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
