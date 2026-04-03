@@ -215,7 +215,7 @@ export default function NewRecipePage() {
   // ---- プレビュー ----
   if (step === "preview" && parsed) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-24">
+      <div className="min-h-screen bg-gray-50 pb-40 md:pb-24">
         <header className="bg-white sticky top-0 z-40 border-b border-gray-100">
           <div className="px-4 py-3 flex items-center gap-3">
             <button onClick={() => setStep("input")} className="text-gray-500 p-1 -ml-1">
@@ -436,7 +436,7 @@ export default function NewRecipePage() {
           )}
         </div>
 
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3">
+        <div className="fixed bottom-16 md:bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-40">
           <button
             onClick={handleSave}
             className="w-full bg-orange-500 text-white py-3.5 rounded-xl font-bold text-base shadow-md active:scale-95 transition-transform"
