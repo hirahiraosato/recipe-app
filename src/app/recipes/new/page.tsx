@@ -540,7 +540,7 @@ export default function NewRecipePage() {
               </p>
             </div>
           </>
-        ) : inputMode === "manual" ? (
+        ) : (
           <>
             <div className="bg-blue-50 rounded-2xl p-4 flex gap-3">
               <span className="text-2xl flex-shrink-0">📋</span>
