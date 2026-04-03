@@ -73,6 +73,9 @@ export default function SettingsClient({
   const [editRole, setEditRole] = useState("");
   const [editCustomCoef, setEditCustomCoef] = useState<number | null>(null);
 
+  // 人前クイック編集
+  const [quickServingId, setQuickServingId] = useState<string | null>(null);
+
   // 表示名編集
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [displayName, setDisplayName] = useState(user.display_name ?? "");
@@ -153,6 +156,22 @@ export default function SettingsClient({
       );
       setEditingMember(null);
     }
+  };
+
+  // ---- 人前クイック変更 ----
+  const handleQuickServing = async (member: FamilyMember, coef: number | null) => {
+    const result = await updateFamilyMember(member.id, {
+      name: member.name,
+      birth_date: member.birth_date,
+      role: member.role,
+      custom_coefficient: coef,
+    });
+    if (result.data) {
+      setFamilyMembers((prev) =>
+        prev.map((m) => (m.id === member.id ? result.data : m))
+      );
+    }
+    setQuickServingId(null);
   };
 
   // ---- メンバー削除 ----
@@ -243,43 +262,85 @@ export default function SettingsClient({
           </div>
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
             {familyMembers.map((member, idx) => (
-              <button
-                key={member.id}
-                onClick={() => handleStartEdit(member)}
-                className={`w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50 transition-colors text-left ${
-                  idx < familyMembers.length - 1 ? "border-b border-gray-50" : ""
-                }`}
-              >
-                <div className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-semibold text-orange-400">
-                    {member.name.charAt(0)}
-                  </span>
+              <div key={member.id} className={idx < familyMembers.length - 1 ? "border-b border-gray-50" : ""}>
+                {/* メンバー行 */}
+                <div className="flex items-center gap-3 px-4 py-3.5">
+                  {/* 左：アバター＋名前（タップで編集モーダル） */}
+                  <button
+                    onClick={() => { setQuickServingId(null); handleStartEdit(member); }}
+                    className="flex items-center gap-3 flex-1 text-left active:opacity-70 transition-opacity"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-semibold text-orange-400">
+                        {member.name.charAt(0)}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">
+                        {member.name}
+                        {member.role && (
+                          <span className="ml-1.5 text-xs text-gray-400">({member.role})</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-400">{getAgeLabel(member.birth_date)}</p>
+                    </div>
+                  </button>
+
+                  {/* 右：人前バッジ（タップでクイックピッカー） */}
+                  <button
+                    onClick={() => setQuickServingId(quickServingId === member.id ? null : member.id)}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      quickServingId === member.id
+                        ? "bg-orange-500 text-white"
+                        : member.custom_coefficient != null
+                        ? "bg-blue-50 text-blue-500"
+                        : "bg-orange-50 text-orange-500"
+                    }`}
+                  >
+                    {getAgeCoefficient(member)}人前
+                    <svg className={`w-3 h-3 transition-transform ${quickServingId === member.id ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* 編集矢印 */}
+                  <button onClick={() => { setQuickServingId(null); handleStartEdit(member); }} className="p-1 active:opacity-70">
+                    <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-800">
-                    {member.name}
-                    {member.role && (
-                      <span className="ml-1.5 text-xs text-gray-400">({member.role})</span>
-                    )}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {getAgeLabel(member.birth_date)} ·{" "}
-                    <span className="text-orange-400">
-                      {getAgeCoefficient(member)}人前
-                    </span>
-                    {member.custom_coefficient != null && (
-                      <span className="ml-1 text-xs text-blue-400">（カスタム）</span>
-                    )}
-                  </p>
-                </div>
-                <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
+
+                {/* インライン人前ピッカー */}
+                {quickServingId === member.id && (
+                  <div className="px-4 pb-3 bg-orange-50 border-t border-orange-100">
+                    <p className="text-xs text-gray-400 pt-2 pb-2">何人前にしますか？</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([null, 0.8, 1.0, 1.2, 1.5, 2.0] as (number | null)[]).map((coef) => (
+                        <button
+                          key={String(coef)}
+                          onClick={() => handleQuickServing(member, coef)}
+                          className={`py-2 rounded-xl text-xs font-semibold border transition-colors ${
+                            getAgeCoefficient(member) === (coef ?? getAgeCoefficientFromBirth(member.birth_date)) &&
+                            (coef === null ? member.custom_coefficient == null : member.custom_coefficient === coef)
+                              ? "bg-orange-500 text-white border-orange-500"
+                              : "bg-white text-gray-700 border-gray-200 active:bg-gray-50"
+                          } ${coef === null ? "col-span-3" : ""}`}
+                        >
+                          {coef === null
+                            ? `自動（年齢から ${getAgeCoefficientFromBirth(member.birth_date)}人前）`
+                            : `${coef}人前`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             ))}
             <button
               onClick={() => {
-                setNewName(""); setNewBirthDate(""); setNewRole("");
+                setNewName(""); setNewBirthDate(""); setNewRole(""); setNewCustomCoef(null);
+                setQuickServingId(null);
                 setShowAddMember(true);
               }}
               className="w-full flex items-center gap-3 px-4 py-3.5 border-t border-gray-50 active:bg-gray-50 transition-colors"
