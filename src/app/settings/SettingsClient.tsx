@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { addFamilyMember, updateFamilyMember, deleteFamilyMember } from "./actions";
 
 type FamilyMember = {
   id: string;
@@ -99,17 +100,17 @@ export default function SettingsClient({
   const handleAddMember = async () => {
     if (!newName || !newBirthDate) return;
     setAddError("");
-    const { data, error } = await supabase
-      .from("family_members")
-      .insert({ user_id: user.id, name: newName, birth_date: newBirthDate, role: newRole || null })
-      .select()
-      .single();
-    if (error) {
-      setAddError(`エラー: ${error.message}`);
+    const result = await addFamilyMember({
+      name: newName,
+      birth_date: newBirthDate,
+      role: newRole || null,
+    });
+    if (result.error) {
+      setAddError(`エラー: ${result.error}`);
       return;
     }
-    if (data) {
-      setFamilyMembers((prev) => [...prev, data]);
+    if (result.data) {
+      setFamilyMembers((prev) => [...prev, result.data]);
       setNewName("");
       setNewBirthDate("");
       setNewRole("");
@@ -129,15 +130,14 @@ export default function SettingsClient({
   // ---- メンバー編集保存 ----
   const handleSaveEdit = async () => {
     if (!editingMember || !editName || !editBirthDate) return;
-    const { data, error } = await supabase
-      .from("family_members")
-      .update({ name: editName, birth_date: editBirthDate, role: editRole || null })
-      .eq("id", editingMember.id)
-      .select()
-      .single();
-    if (!error && data) {
+    const result = await updateFamilyMember(editingMember.id, {
+      name: editName,
+      birth_date: editBirthDate,
+      role: editRole || null,
+    });
+    if (result.data) {
       setFamilyMembers((prev) =>
-        prev.map((m) => (m.id === editingMember.id ? data : m))
+        prev.map((m) => (m.id === editingMember.id ? result.data : m))
       );
       setEditingMember(null);
     }
@@ -145,7 +145,7 @@ export default function SettingsClient({
 
   // ---- メンバー削除 ----
   const handleDeleteMember = async (id: string) => {
-    await supabase.from("family_members").delete().eq("id", id);
+    await deleteFamilyMember(id);
     setFamilyMembers((prev) => prev.filter((m) => m.id !== id));
     setEditingMember(null);
   };
