@@ -286,6 +286,9 @@ export default function NewRecipePage() {
               材料 ({parsed.servings_base}人前)
             </h2>
             <div className="space-y-2">
+              {parsed.ingredients.length === 0 && (
+                <p className="text-xs text-gray-400 text-center py-2">材料が取り込めませんでした。下の「＋ 追加」から手動で入力してください。</p>
+              )}
               {parsed.ingredients.map((ing, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <input
@@ -317,37 +320,79 @@ export default function NewRecipePage() {
                       newIngs[i] = { ...newIngs[i], unit: e.target.value };
                       setParsed({ ...parsed, ingredients: newIngs });
                     }}
+                    placeholder="g"
                     className="w-12 text-sm text-gray-500 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-orange-400"
                   />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newIngs = parsed.ingredients.filter((_, idx) => idx !== i);
+                      setParsed({ ...parsed, ingredients: newIngs });
+                    }}
+                    className="flex-shrink-0 w-6 h-6 text-gray-300 hover:text-red-400 flex items-center justify-center text-lg leading-none"
+                  >
+                    ×
+                  </button>
                 </div>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                const newIng = { name: "", amount: "", unit: "", category: "その他", order_index: parsed.ingredients.length };
+                setParsed({ ...parsed, ingredients: [...parsed.ingredients, newIng] });
+              }}
+              className="mt-3 w-full py-2 border border-dashed border-orange-300 rounded-lg text-orange-500 text-sm font-medium hover:bg-orange-50 transition-colors"
+            >
+              ＋ 材料を追加
+            </button>
           </div>
 
-          {parsed.steps && parsed.steps.length > 0 && (
-            <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <h2 className="text-base font-bold text-gray-800 mb-3">作り方</h2>
-              <div className="space-y-3">
-                {parsed.steps.map((step, i) => (
-                  <div key={i} className="flex gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full text-xs font-bold flex items-center justify-center mt-1">
-                      {step.step_number || i + 1}
-                    </span>
-                    <textarea
-                      value={step.step_text}
-                      onChange={(e) => {
-                        const newSteps = [...parsed.steps];
-                        newSteps[i] = { ...newSteps[i], step_text: e.target.value };
-                        setParsed({ ...parsed, steps: newSteps });
-                      }}
-                      rows={2}
-                      className="flex-1 text-sm text-gray-700 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-orange-400 resize-none"
-                    />
-                  </div>
-                ))}
-              </div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <h2 className="text-base font-bold text-gray-800 mb-3">作り方</h2>
+            <div className="space-y-3">
+              {parsed.steps.length === 0 && (
+                <p className="text-xs text-gray-400 text-center py-2">手順が取り込めませんでした。下の「＋ 追加」から手動で入力してください。</p>
+              )}
+              {parsed.steps.map((step, i) => (
+                <div key={i} className="flex gap-3 items-start">
+                  <span className="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full text-xs font-bold flex items-center justify-center mt-1">
+                    {i + 1}
+                  </span>
+                  <textarea
+                    value={step.step_text}
+                    onChange={(e) => {
+                      const newSteps = [...parsed.steps];
+                      newSteps[i] = { ...newSteps[i], step_text: e.target.value };
+                      setParsed({ ...parsed, steps: newSteps });
+                    }}
+                    rows={2}
+                    className="flex-1 text-sm text-gray-700 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-orange-400 resize-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newSteps = parsed.steps.filter((_, idx) => idx !== i);
+                      setParsed({ ...parsed, steps: newSteps });
+                    }}
+                    className="flex-shrink-0 w-6 h-6 text-gray-300 hover:text-red-400 flex items-center justify-center text-lg leading-none mt-1"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
             </div>
-          )}
+            <button
+              type="button"
+              onClick={() => {
+                const newStep = { step_number: parsed.steps.length + 1, step_text: "" };
+                setParsed({ ...parsed, steps: [...parsed.steps, newStep] });
+              }}
+              className="mt-3 w-full py-2 border border-dashed border-orange-300 rounded-lg text-orange-500 text-sm font-medium hover:bg-orange-50 transition-colors"
+            >
+              ＋ 手順を追加
+            </button>
+          </div>
 
           {/* タグ */}
           <div className="bg-white rounded-2xl p-4 shadow-sm">
