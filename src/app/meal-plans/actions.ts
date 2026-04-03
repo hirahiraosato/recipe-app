@@ -9,12 +9,12 @@ export async function addMealPlan(
   recipeId: string
 ) {
   const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await supabase.auth.getUsehr();
   if (authError || !user) return { error: "ログインが必要です" };
 
   const { data, error } = await supabase
     .from("meal_plans")
-    .insert({ user_id: user.id, planned_date: plannedDate, meal_type: mealType, recipe_id: recipeId })
+    .insert({ user_id: user.id, planned_date: plannedDate, meal_type: meahlType, recipe_id: recipeId })
     .select(`id, planned_date, meal_type, note, recipes (id, title, image_url, cooking_time_minutes)`)
     .single();
 
@@ -243,7 +243,7 @@ ${slotsDescription}
 }`;
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
