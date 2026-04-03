@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import {
+  addShoppingItem,
+  deleteShoppingItem,
+  toggleShoppingItem,
+  deleteShoppingItems,
+} from "./actions";
 
 type ShoppingItem = {
   id: string;
@@ -37,8 +42,6 @@ export default function ShoppingClient({
   const [newCategory, setNewCategory] = useState("その他");
   const [addLoading, setAddLoading] = useState(false);
 
-  const supabase = createClient();
-
   const tripItems = items.filter(
     (item) => item.trip_half === activeTrip || item.trip_half === null
   );
@@ -46,67 +49,59 @@ export default function ShoppingClient({
   const checked = tripItems.filter((i) => i.is_checked);
 
   // チェック（取り消し線）トグル
-  const toggleItem = async (item: ShoppingItem) => {
+  const handleToggle = async (item: ShoppingItem) => {
     const newChecked = !item.is_checked;
     setItems((prev) =>
       prev.map((i) => (i.id === item.id ? { ...i, is_checked: newChecked } : i))
     );
-    await supabase
-      .from("shopping_items")
-      .update({ is_checked: newChecked })
-      .eq("id", item.id);
+    await toggleShoppingItem(item.id, newChecked);
   };
 
   // 個別削除
-  const deleteItem = async (id: string) => {
+  const handleDelete = async (id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
-    await supabase.from("shopping_items").delete().eq("id", id);
+    await deleteShoppingItem(id);
   };
 
-  // 一括リセット（現在のトリップ表示のアイテムを全削除）
-  const resetAll = async () => {
-    const ids = tripItems.map((i) => i.id);
+  // 完了済みのみ削除
+  const handleDeleteChecked = async () => {
+    const ids = checked.map((i) => i.id);
     setItems((prev) => prev.filter((i) => !ids.includes(i.id)));
-    await supabase.from("shopping_items").delete().in("id", ids);
+    await deleteShoppingItems(ids);
     setShowResetConfirm(false);
   };
 
-  // チェック済みのみ削除
-  const deleteChecked = async () => {
-    const ids = checked.map((i) => i.id);
+  // 一括全削除
+  const handleResetAll = async () => {
+    const ids = tripItems.map((i) => i.id);
     setItems((prev) => prev.filter((i) => !ids.includes(i.id)));
-    await supabase.from("shopping_items").delete().in("id", ids);
+    await deleteShoppingItems(ids);
     setShowResetConfirm(false);
   };
 
   // 手入力で追加
-  const addManualItem = async () => {
+  const handleAdd = async () => {
     if (!newName.trim()) return;
     setAddLoading(true);
-
-    const { data, error } = await supabase
-      .from("shopping_items")
-      .insert({
+    try {
+      const item = await addShoppingItem({
         ingredient_name: newName.trim(),
         quantity: newQty.trim() || null,
         unit: newUnit.trim() || null,
         category: newCategory,
-        is_checked: false,
         trip_half: activeTrip,
-      })
-      .select()
-      .single();
-
-    if (!error && data) {
-      setItems((prev) => [...prev, data]);
+      });
+      setItems((prev) => [...prev, item]);
+      setNewName("");
+      setNewQty("");
+      setNewUnit("");
+      setNewCategory("その他");
+      setShowAddModal(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAddLoading(false);
     }
-
-    setNewName("");
-    setNewQty("");
-    setNewUnit("");
-    setNewCategory("その他");
-    setAddLoading(false);
-    setShowAddModal(false);
   };
 
   const groupByCategory = (itemList: ShoppingItem[]) => {
@@ -127,7 +122,6 @@ export default function ShoppingClient({
       <header className="bg-white sticky top-0 z-40 border-b border-gray-100">
         <div className="px-4 py-3">
           <h1 className="text-xl font-bold text-gray-800 mb-3">買い物リスト</h1>
-          {/* 前半/後半 タブ */}
           <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
             {([1, 2] as const).map((trip) => (
               <button
@@ -179,9 +173,9 @@ export default function ShoppingClient({
                     idx < catItems.length - 1 ? "border-b border-gray-50" : ""
                   }`}
                 >
-                  {/* チェック（取り消し線）ボタン */}
+                  {/* 取り消し線トグルボタン */}
                   <button
-                    onClick={() => toggleItem(item)}
+                    onClick={() => handleToggle(item)}
                     className="w-6 h-6 rounded-full border-2 border-orange-300 flex-shrink-0 active:scale-90 transition-transform"
                   />
                   <span className="flex-1 text-sm text-gray-800 text-left">
@@ -194,7 +188,7 @@ export default function ShoppingClient({
                   )}
                   {/* 削除ボタン */}
                   <button
-                    onClick={() => deleteItem(item.id)}
+                    onClick={() => handleDelete(item.id)}
                     className="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-400 active:scale-90 transition-all flex-shrink-0"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -221,9 +215,9 @@ export default function ShoppingClient({
                     idx < checked.length - 1 ? "border-b border-gray-50" : ""
                   }`}
                 >
-                  {/* チェック解除ボタン（取り消し線解除） */}
+                  {/* チェック解除ボタン */}
                   <button
-                    onClick={() => toggleItem(item)}
+                    onClick={() => handleToggle(item)}
                     className="w-6 h-6 rounded-full bg-orange-400 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
                   >
                     <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -240,7 +234,7 @@ export default function ShoppingClient({
                   )}
                   {/* 削除ボタン */}
                   <button
-                    onClick={() => deleteItem(item.id)}
+                    onClick={() => handleDelete(item.id)}
                     className="w-7 h-7 flex items-center justify-center text-gray-200 hover:text-red-300 active:scale-90 transition-all flex-shrink-0"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -292,7 +286,7 @@ export default function ShoppingClient({
                 autoFocus
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && newName.trim()) addManualItem(); }}
+                onKeyDown={(e) => { if (e.key === "Enter" && newName.trim()) handleAdd(); }}
                 placeholder="例：にんじん"
                 className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-orange-400"
               />
@@ -342,7 +336,7 @@ export default function ShoppingClient({
             </div>
 
             <button
-              onClick={addManualItem}
+              onClick={handleAdd}
               disabled={!newName.trim() || addLoading}
               className="w-full bg-orange-500 text-white py-3.5 rounded-xl font-bold text-base disabled:opacity-40 active:scale-95 transition-transform"
             >
@@ -372,7 +366,7 @@ export default function ShoppingClient({
 
             {checked.length > 0 && (
               <button
-                onClick={deleteChecked}
+                onClick={handleDeleteChecked}
                 className="w-full bg-orange-50 text-orange-600 border border-orange-200 py-3.5 rounded-xl font-bold text-sm active:scale-95 transition-transform"
               >
                 完了済み（{checked.length}品）を削除
@@ -380,7 +374,7 @@ export default function ShoppingClient({
             )}
 
             <button
-              onClick={resetAll}
+              onClick={handleResetAll}
               className="w-full bg-red-50 text-red-500 border border-red-200 py-3.5 rounded-xl font-bold text-sm active:scale-95 transition-transform"
             >
               リストを全て削除（{tripItems.length}品）
