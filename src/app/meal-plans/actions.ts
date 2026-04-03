@@ -123,7 +123,7 @@ export async function addIngredientsToShopping(
       category: ing.category ?? null,
       is_checked: false,
       source_recipe: recipe?.title ?? null,
-      week_start_date: sourceDayLabel,
+      week_start_date: null,
     };
   });
 
