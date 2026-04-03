@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { addMealPlan, deleteMealPlan, addIngredientsToShopping } from "./actions";
+import AISuggestModal from "./AISuggestModal";
 
 type Recipe = {
   id: string;
@@ -61,6 +62,8 @@ export default function MealPlansClient({
   const [addingShoppingKey, setAddingShoppingKey] = useState<string | null>(null);
   // 完了トースト
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  // AI提案モーダル
+  const [showAISuggest, setShowAISuggest] = useState(false);
 
   const handleCopyMealPlan = async () => {
     const lines: string[] = ["【献立】"];
@@ -156,15 +159,26 @@ export default function MealPlansClient({
       <div className="min-h-screen bg-gray-50 pb-28">
         <header className="bg-white sticky top-0 z-40 border-b border-gray-100 px-4 py-3 flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-800">献立</h1>
-          <button
-            onClick={handleCopyMealPlan}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 font-medium active:bg-gray-50 transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            LINEで送る
-          </button>
+          <div className="flex items-center gap-2">
+            {/* AI提案ボタン */}
+            <button
+              onClick={() => setShowAISuggest(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-orange-200 bg-orange-50 text-xs text-orange-500 font-medium active:bg-orange-100 transition-colors"
+            >
+              <span>✨</span>
+              AI提案
+            </button>
+            {/* LINEで送る */}
+            <button
+              onClick={handleCopyMealPlan}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 font-medium active:bg-gray-50 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              LINEで送る
+            </button>
+          </div>
         </header>
 
         <div className="px-4 py-3 space-y-3">
@@ -352,6 +366,15 @@ export default function MealPlansClient({
           })}
         </div>
       </div>
+
+      {/* AI提案モーダル */}
+      {showAISuggest && (
+        <AISuggestModal
+          todayStr={todayStr}
+          onClose={() => setShowAISuggest(false)}
+          onApplied={() => router.refresh()}
+        />
+      )}
 
       {/* トースト通知 */}
       {toast && (

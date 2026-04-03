@@ -133,3 +133,148 @@ export async function addIngredientsToShopping(
   revalidatePath("/shopping");
   return { data: ingredients.length };
 }
+
+// ───────────────────────────────
+// AI献立提案
+// ───────────────────────────────
+export type SuggestScope = "week" | "day" | "meal";
+
+export type MealSuggestion = {
+  date: string;          // YYYY-MM-DD
+  meal_type: "breakfast" | "lunch" | "dinner";
+  recipe_id: string;
+  recipe_title: string;
+};
+
+export async function suggestMealPlan(
+  scope: SuggestScope,
+  targetDate: string,           // 開始日 or 対象日 (YYYY-MM-DD)
+  targetMealType?: "breakfast" | "lunch" | "dinner"  // scope=meal のとき
+): Promise<{ data?: MealSuggestion[]; error?: string }> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return { error: "GEMINI_API_KEY が設定されていません" };
+
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return { error: "ログインが必要です" };
+
+  // 登録済みレシピ一覧を取得
+  const { data: recipes, error: recipesError } = await supabase
+    .from("recipes")
+    .select("id, title, category")
+    .eq("user_id", user.id)
+    .order("title");
+  if (recipesError || !recipes || recipes.length === 0) {
+    return { error: "レシピが登録されていません" };
+  }
+
+  // 直近2週間の献立を取得（重複回避のため）
+  const twoWeeksAgo = new Date(targetDate + "T00:00:00");
+  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+  const twoWeeksAgoStr = twoWeeksAgo.toISOString().split("T")[0];
+
+  const { data: recentPlans } = await supabase
+    .from("meal_plans")
+    .select("planned_date, meal_type, recipes(title)")
+    .eq("user_id", user.id)
+    .gte("planned_date", twoWeeksAgoStr)
+    .lte("planned_date", targetDate)
+    .order("planned_date");
+
+  // 提案対象の日付・食事タイプを決定
+  const mealTypeLabels: Record<string, string> = {
+    breakfast: "朝食", lunch: "昼食", dinner: "夕食",
+  };
+  const allMealTypes = ["breakfast", "lunch", "dinner"] as const;
+
+  let slotsDescription = "";
+  if (scope === "week") {
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(targetDate + "T00:00:00");
+      d.setDate(d.getDate() + i);
+      return d.toISOString().split("T")[0];
+    });
+    slotsDescription = days
+      .map((d) => `${d}（朝食・昼食・夕食）`)
+      .join("\n");
+  } else if (scope === "day") {
+    slotsDescription = `${targetDate}（朝食・昼食・夕食）`;
+  } else {
+    const mtLabel = mealTypeLabels[targetMealType ?? "dinner"];
+    slotsDescription = `${targetDate}（${mtLabel}）`;
+  }
+
+  // 直近献立を整形
+  const recentStr = (recentPlans || [])
+    .map((p) => {
+      const r = p.recipes as { title: string } | null;
+      return `${p.planned_date} ${mealTypeLabels[p.meal_type] ?? p.meal_type}：${r?.title ?? "不明"}`;
+    })
+    .join("\n") || "なし";
+
+  // レシピ一覧を整形
+  const recipeListStr = recipes
+    .map((r) => `- id:${r.id} 「${r.title}」 カテゴリ:${r.category ?? "未分類"}`)
+    .join("\n");
+
+  const prompt = `あなたは家族の献立を提案するアシスタントです。
+以下の条件に従って、登録済みレシピから献立を提案してください。
+
+## 登録済みレシピ（この中からのみ選んでください）
+${recipeListStr}
+
+## 直近の献立（できるだけ重複を避けてください）
+${recentStr}
+
+## 提案してほしい枠
+${slotsDescription}
+
+## 条件
+- 必ず上記「登録済みレシピ」のid/titleを使用してください
+- 主食・主菜・副菜など栄養バランスを意識して組み合わせてください
+- 直近の献立と同じレシピが続かないようにしてください
+- 1つの枠に1つのレシピを割り当ててください
+
+以下のJSON形式のみで返してください（説明文は不要）:
+{
+  "suggestions": [
+    {"date": "YYYY-MM-DD", "meal_type": "breakfast|lunch|dinner", "recipe_id": "...", "recipe_title": "..."}
+  ]
+}`;
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json" },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const errText = await res.text();
+    return { error: `Gemini APIエラー: ${res.status} ${errText.slice(0, 200)}` };
+  }
+
+  const json = await res.json();
+  const rawText: string =
+    json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+
+  let parsed: { suggestions: MealSuggestion[] };
+  try {
+    parsed = JSON.parse(rawText);
+  } catch {
+    return { error: "AIの返答をパースできませんでした" };
+  }
+
+  // recipe_id が実在するか検証
+  const validIds = new Set(recipes.map((r) => r.id));
+  const validated = (parsed.suggestions || []).filter((s) =>
+    validIds.has(s.recipe_id)
+  );
+
+  return { data: validated };
+}
