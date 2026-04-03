@@ -90,6 +90,29 @@ export default function ShoppingClient({
   const [activeTrip, setActiveTrip] = useState<1 | 2>(1);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [copyToast, setCopyToast] = useState(false);
+
+  const handleCopyList = async () => {
+    const lines: string[] = [`【買い物リスト】${TRIP_LABELS[activeTrip]}`];
+    const groups = groupAggByCategory(uncheckedAgg);
+    for (const [cat, catAggs] of Object.entries(groups)) {
+      lines.push(`\n▼ ${cat}`);
+      for (const agg of catAggs) {
+        const qty = agg.totalQuantity ? `${agg.totalQuantity}${agg.unit ?? ""}` : (agg.unit ?? "");
+        lines.push(`□ ${agg.ingredient_name}${qty ? `　${qty}` : ""}`);
+      }
+    }
+    if (checkedAgg.length > 0) {
+      lines.push("\n▼ 完了済み");
+      for (const agg of checkedAgg) {
+        const qty = agg.totalQuantity ? `${agg.totalQuantity}${agg.unit ?? ""}` : (agg.unit ?? "");
+        lines.push(`✓ ${agg.ingredient_name}${qty ? `　${qty}` : ""}`);
+      }
+    }
+    await navigator.clipboard.writeText(lines.join("\n"));
+    setCopyToast(true);
+    setTimeout(() => setCopyToast(false), 2000);
+  };
 
   const [newName, setNewName] = useState("");
   const [newQty, setNewQty] = useState("");
@@ -254,7 +277,18 @@ export default function ShoppingClient({
       {/* ヘッダー */}
       <header className="bg-white sticky top-0 z-40 border-b border-gray-100">
         <div className="px-4 py-3">
-          <h1 className="text-xl font-bold text-gray-800 mb-3">買い物リスト</h1>
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="text-xl font-bold text-gray-800">買い物リスト</h1>
+            <button
+              onClick={handleCopyList}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 font-medium active:bg-gray-50 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              LINEで送る
+            </button>
+          </div>
           <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
             {([1, 2] as const).map((trip) => (
               <button
@@ -431,6 +465,13 @@ export default function ShoppingClient({
               キャンセル
             </button>
           </div>
+        </div>
+      )}
+
+      {/* コピー完了トースト */}
+      {copyToast && (
+        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[70] bg-gray-800 text-white text-sm font-medium px-4 py-2.5 rounded-2xl shadow-lg whitespace-nowrap">
+          ✓ コピーしました
         </div>
       )}
 

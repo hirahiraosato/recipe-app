@@ -61,6 +61,28 @@ export default function MealPlansClient({
   const [addingShoppingDate, setAddingShoppingDate] = useState<string | null>(null);
   // 完了トースト
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+
+  const handleCopyMealPlan = async () => {
+    const lines: string[] = ["【献立】"];
+    for (const dateStr of dates) {
+      const dayMeals = getDayMeals(dateStr);
+      if (dayMeals.length === 0) continue;
+      const { main } = formatDateLabel(dateStr, todayStr);
+      lines.push(`\n${main}`);
+      for (const { key, label, emoji } of [
+        { key: "breakfast", label: "朝", emoji: "🌅" },
+        { key: "lunch",    label: "昼", emoji: "☀️" },
+        { key: "dinner",   label: "夜", emoji: "🌙" },
+      ] as const) {
+        const meals = getMeals(dateStr, key);
+        if (meals.length === 0) continue;
+        const titles = meals.map((m) => m.recipes?.title ?? "").filter(Boolean).join("・");
+        lines.push(` ${emoji}${label}：${titles}`);
+      }
+    }
+    await navigator.clipboard.writeText(lines.join("\n"));
+    showToast("献立をコピーしました");
+  };
   const todayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -134,8 +156,17 @@ export default function MealPlansClient({
   return (
     <>
       <div className="min-h-screen bg-gray-50 pb-28">
-        <header className="bg-white sticky top-0 z-40 border-b border-gray-100 px-4 py-3">
+        <header className="bg-white sticky top-0 z-40 border-b border-gray-100 px-4 py-3 flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-800">献立</h1>
+          <button
+            onClick={handleCopyMealPlan}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 font-medium active:bg-gray-50 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            LINEで送る
+          </button>
         </header>
 
         <div className="px-4 py-3 space-y-3">
