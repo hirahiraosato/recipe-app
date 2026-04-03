@@ -225,6 +225,14 @@ export default function RecipeDetailClient({
                 <p className="text-sm text-gray-400 text-center py-4">材料情報がありません</p>
               ) : (
                 <div className="space-y-4">
+                  {/* カラムヘッダー（家族メンバーがいる場合のみ） */}
+                  {familyMembers.length > 0 && (
+                    <div className="flex items-center justify-end gap-3 pb-1 border-b border-gray-100">
+                      <span className="text-xs text-gray-400 w-20 text-right">元レシピ</span>
+                      <span className="text-xs font-semibold text-orange-500 w-20 text-right">家族換算</span>
+                    </div>
+                  )}
+
                   {Object.entries(grouped).map(([cat, items]) => (
                     <div key={cat}>
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
@@ -232,28 +240,47 @@ export default function RecipeDetailClient({
                       </p>
                       <div className="space-y-2">
                         {items.map((ing) => {
+                          const originalAmount = ing.amount;
                           const scaledAmount =
-                            ing.amount !== null
-                              ? ing.amount * multiplier
-                              : null;
+                            ing.amount !== null ? ing.amount * multiplier : null;
+                          const showBoth = familyMembers.length > 0;
+
                           return (
                             <div
                               key={ing.id}
                               className="flex items-center justify-between py-1 border-b border-gray-50 last:border-0"
                             >
-                              <span className="text-sm text-gray-700 flex items-center gap-1.5">
+                              <span className="text-sm text-gray-700 flex items-center gap-1.5 flex-1 min-w-0 mr-2">
                                 {ing.group_label && (
-                                  <span className="text-xs font-bold text-orange-400 bg-orange-50 px-1.5 py-0.5 rounded">
+                                  <span className="flex-shrink-0 text-xs font-bold text-orange-400 bg-orange-50 px-1.5 py-0.5 rounded">
                                     {ing.group_label}
                                   </span>
                                 )}
-                                {ing.name}
+                                <span className="truncate">{ing.name}</span>
                               </span>
-                              <span className="text-sm font-medium text-gray-800">
-                                {scaledAmount !== null
-                                  ? `${formatAmount(scaledAmount)}${ing.unit}`
-                                  : ing.unit || "適量"}
-                              </span>
+
+                              {showBoth ? (
+                                /* 元レシピ量 + 家族換算量を横並び */
+                                <div className="flex items-center gap-3 flex-shrink-0">
+                                  <span className="text-xs text-gray-400 w-20 text-right">
+                                    {originalAmount !== null
+                                      ? `${formatAmount(originalAmount)}${ing.unit}`
+                                      : ing.unit || "適量"}
+                                  </span>
+                                  <span className="text-sm font-semibold text-orange-600 w-20 text-right">
+                                    {scaledAmount !== null
+                                      ? `${formatAmount(scaledAmount)}${ing.unit}`
+                                      : ing.unit || "適量"}
+                                  </span>
+                                </div>
+                              ) : (
+                                /* 家族メンバー未設定：元レシピ量のみ */
+                                <span className="text-sm font-medium text-gray-800 flex-shrink-0">
+                                  {originalAmount !== null
+                                    ? `${formatAmount(originalAmount)}${ing.unit}`
+                                    : ing.unit || "適量"}
+                                </span>
+                              )}
                             </div>
                           );
                         })}
