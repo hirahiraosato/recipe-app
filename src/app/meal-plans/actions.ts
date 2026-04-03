@@ -50,26 +50,37 @@ export async function addIngredientsToShopping(
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return { error: "ログインが必要です" };
 
-  // 対象レシピの食材を取得
+  // レシピIDの出現回数を集計（同レシピを複数登録した場合に対応）
+  const recipeCountMap: Record<string, number> = {};
+  for (const id of recipeIds) {
+    recipeCountMap[id] = (recipeCountMap[id] ?? 0) + 1;
+  }
+  const uniqueRecipeIds = Object.keys(recipeCountMap);
+
+  // 対象レシピの食材を取得（ユニークIDで検索）
   const { data: ingredients, error: fetchError } = await supabase
     .from("ingredients")
     .select("name, amount, unit, category, recipe_id, recipes(title)")
-    .in("recipe_id", recipeIds);
+    .in("recipe_id", uniqueRecipeIds);
 
   if (fetchError) return { error: fetchError.message };
   if (!ingredients || ingredients.length === 0) return { error: "食材が登録されていません" };
 
-  // shopping_itemsに挿入
-  const rows = ingredients.map((ing) => ({
-    user_id: user.id,
-    ingredient_name: ing.name,
-    quantity: ing.amount != null ? String(ing.amount) : null,
-    unit: ing.unit ?? null,
-    category: ing.category ?? null,
-    is_checked: false,
-    source_recipe: (ing.recipes as { title: string } | null)?.title ?? null,
-    week_start_date: sourceDayLabel,
-  }));
+  // 同レシピが複数登録されている場合は量を回数倍して挿入
+  const rows = ingredients.map((ing) => {
+    const count = recipeCountMap[ing.recipe_id] ?? 1;
+    const scaledAmount = ing.amount != null ? ing.amount * count : null;
+    return {
+      user_id: user.id,
+      ingredient_name: ing.name,
+      quantity: scaledAmount != null ? String(scaledAmount) : null,
+      unit: ing.unit ?? null,
+      category: ing.category ?? null,
+      is_checked: false,
+      source_recipe: (ing.recipes as { title: string } | null)?.title ?? null,
+      week_start_date: sourceDayLabel,
+    };
+  });
 
   const { error: insertError } = await supabase.from("shopping_items").insert(rows);
   if (insertError) return { error: insertError.message };

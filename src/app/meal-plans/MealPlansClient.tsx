@@ -105,7 +105,8 @@ export default function MealPlansClient({
 
   const handleAddToShopping = async (dateStr: string, dayLabel: string) => {
     const dayMeals = getDayMeals(dateStr);
-    const recipeIds = [...new Set(dayMeals.map((m) => m.recipes?.id).filter(Boolean) as string[])];
+    // new Set() は使わず重複を保持する（同レシピを複数登録した場合に必要量×回数分追加するため）
+    const recipeIds = dayMeals.map((m) => m.recipes?.id).filter(Boolean) as string[];
     if (recipeIds.length === 0) {
       showToast("この日にレシピが登録されていません", "error");
       return;
