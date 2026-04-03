@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { addMealPlan, deleteMealPlan } from "./actions";
+import { useRouter } from "next/navigation";
+import { addMealPlan, deleteMealPlan, addIngredientsToShopping } from "./actions";
 
 type Recipe = {
   id: string;
@@ -51,15 +52,25 @@ export default function MealPlansClient({
   recipes: Recipe[];
   todayStr: string;
 }) {
+  const router = useRouter();
   const [mealPlans, setMealPlans] = useState<MealPlan[]>(initialMealPlans);
   const [pickerTarget, setPickerTarget] = useState<{ date: string; mealType: "breakfast" | "lunch" | "dinner" } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [saving, setSaving] = useState(false);
+  // 買い物リスト追加中の日付
+  const [addingShoppingDate, setAddingShoppingDate] = useState<string | null>(null);
+  // 完了トースト
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const todayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     todayRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
+
+  const showToast = (msg: string, type: "success" | "error" = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 2500);
+  };
 
   const dates = Array.from({ length: 14 }, (_, i) => {
     const d = new Date(todayStr + "T00:00:00");
@@ -67,9 +78,11 @@ export default function MealPlansClient({
     return d.toISOString().split("T")[0];
   });
 
-  // 日付×食事タイプで複数レシピを取得
   const getMeals = (dateStr: string, mealType: string) =>
     mealPlans.filter((mp) => mp.planned_date === dateStr && mp.meal_type === mealType);
+
+  const getDayMeals = (dateStr: string) =>
+    mealPlans.filter((mp) => mp.planned_date === dateStr);
 
   const handleSelectRecipe = async (recipeId: string) => {
     if (!pickerTarget || saving) return;
@@ -90,7 +103,23 @@ export default function MealPlansClient({
     }
   };
 
-  // 選択済みレシピIDを除外してピッカーに表示
+  const handleAddToShopping = async (dateStr: string, dayLabel: string) => {
+    const dayMeals = getDayMeals(dateStr);
+    const recipeIds = [...new Set(dayMeals.map((m) => m.recipes?.id).filter(Boolean) as string[])];
+    if (recipeIds.length === 0) {
+      showToast("この日にレシピが登録されていません", "error");
+      return;
+    }
+    setAddingShoppingDate(dateStr);
+    const result = await addIngredientsToShopping(recipeIds, dateStr);
+    setAddingShoppingDate(null);
+    if (result.error) {
+      showToast(result.error, "error");
+    } else {
+      showToast(`${result.data}品の食材を買い物リストに追加しました`);
+    }
+  };
+
   const selectedIds = pickerTarget
     ? getMeals(pickerTarget.date, pickerTarget.mealType).map((m) => m.recipes?.id)
     : [];
@@ -111,6 +140,9 @@ export default function MealPlansClient({
         <div className="px-4 py-3 space-y-3">
           {dates.map((dateStr) => {
             const { main, sub, isToday, isTomorrow, isSat, isSun } = formatDateLabel(dateStr, todayStr);
+            const dayMealCount = getDayMeals(dateStr).length;
+            const isAddingShopping = addingShoppingDate === dateStr;
+
             return (
               <div
                 key={dateStr}
@@ -126,7 +158,25 @@ export default function MealPlansClient({
                   }`}>{main}</span>
                   {sub && <span className="text-xs text-gray-400">{sub}</span>}
                   {isToday && (
-                    <span className="ml-auto text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full font-medium">今日</span>
+                    <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full font-medium">今日</span>
+                  )}
+
+                  {/* 買い物リスト追加ボタン */}
+                  {dayMealCount > 0 && (
+                    <button
+                      onClick={() => handleAddToShopping(dateStr, main)}
+                      disabled={isAddingShopping}
+                      className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-xs text-gray-500 active:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      {isAddingShopping ? (
+                        <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      )}
+                      <span>買い物リストへ</span>
+                    </button>
                   )}
                 </div>
 
@@ -137,7 +187,6 @@ export default function MealPlansClient({
                     return (
                       <div key={key} className="px-4 py-3">
                         <div className="flex items-start gap-3">
-                          {/* 食事タイプラベル */}
                           <div className="w-8 flex flex-col items-center flex-shrink-0 pt-1">
                             <span className="text-base">{emoji}</span>
                             <span className="text-xs text-gray-400 font-medium">{label}</span>
@@ -147,23 +196,47 @@ export default function MealPlansClient({
                             {/* 登録済みレシピ */}
                             {meals.map((meal) => (
                               <div key={meal.id} className="flex items-center gap-2">
-                                <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-orange-50">
+                                {/* サムネ → 詳細ページへ */}
+                                <button
+                                  onClick={() => router.push(`/recipes/${meal.recipes?.id}`)}
+                                  className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-orange-50 active:opacity-70 transition-opacity"
+                                >
                                   {meal.recipes?.image_url ? (
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img src={meal.recipes.image_url} alt={meal.recipes?.title} className="w-full h-full object-cover" />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center text-lg">🍽️</div>
                                   )}
-                                </div>
+                                </button>
+
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-800 line-clamp-1">{meal.recipes?.title}</p>
-                                  {meal.recipes?.cooking_time_minutes && (
-                                    <p className="text-xs text-gray-400">⏱ {meal.recipes.cooking_time_minutes}分</p>
-                                  )}
+                                  {/* タイトル → 詳細ページへ */}
+                                  <button
+                                    onClick={() => router.push(`/recipes/${meal.recipes?.id}`)}
+                                    className="text-left w-full active:opacity-70 transition-opacity"
+                                  >
+                                    <p className="text-sm font-medium text-gray-800 line-clamp-1">{meal.recipes?.title}</p>
+                                    {meal.recipes?.cooking_time_minutes && (
+                                      <p className="text-xs text-gray-400">⏱ {meal.recipes.cooking_time_minutes}分</p>
+                                    )}
+                                  </button>
                                 </div>
+
+                                {/* 詳細へのリンクアイコン */}
+                                <button
+                                  onClick={() => router.push(`/recipes/${meal.recipes?.id}`)}
+                                  className="w-7 h-7 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center flex-shrink-0 active:bg-orange-50 transition-colors"
+                                  title="レシピ詳細を見る"
+                                >
+                                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                  </svg>
+                                </button>
+
+                                {/* 削除 */}
                                 <button
                                   onClick={() => handleClearMeal(meal)}
-                                  className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 active:bg-red-100 transition-colors"
+                                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 active:bg-red-100 transition-colors"
                                 >
                                   <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
@@ -175,7 +248,7 @@ export default function MealPlansClient({
                             {/* 追加ボタン */}
                             <button
                               onClick={() => setPickerTarget({ date: dateStr, mealType: key })}
-                              className={`flex items-center gap-2 active:opacity-60 transition-opacity ${meals.length === 0 ? "w-full" : ""}`}
+                              className="flex items-center gap-2 active:opacity-60 transition-opacity"
                             >
                               {meals.length === 0 ? (
                                 <>
@@ -206,6 +279,15 @@ export default function MealPlansClient({
           })}
         </div>
       </div>
+
+      {/* トースト通知 */}
+      {toast && (
+        <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-4 py-2.5 rounded-2xl shadow-lg text-sm font-medium text-white whitespace-nowrap transition-all ${
+          toast.type === "success" ? "bg-gray-800" : "bg-red-500"
+        }`}>
+          {toast.type === "success" ? "✓ " : "⚠ "}{toast.msg}
+        </div>
+      )}
 
       {/* ===== レシピピッカー ===== */}
       {pickerTarget && (
