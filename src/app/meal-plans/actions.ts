@@ -267,18 +267,4 @@ ${slotsDescription}
   const rawText: string =
     json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
-  let parsed: { suggestions: MealSuggestion[] };
-  try {
-    parsed = JSON.parse(rawText);
-  } catch {
-    return { error: "AIの返答をパースできませんでした" };
-  }
-
-  // recipe_id が実在するか検証
-  const validIds = new Set(recipes.map((r) => r.id));
-  const validated = (parsed.suggestions || []).filter((s) =>
-    validIds.has(s.recipe_id)
-  );
-
-  return { data: validated };
-}
+  
