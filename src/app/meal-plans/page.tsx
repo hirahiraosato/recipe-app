@@ -12,12 +12,11 @@ export default async function MealPlansPage() {
     redirect("/login");
   }
 
-  // 今日から14日分の献立を取得
-  const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
-  const endDate = new Date(today);
-  endDate.setDate(today.getDate() + 13);
-  const endStr = endDate.toISOString().split("T")[0];
+  // 今日から14日分の献立を取得（JSTで日付を確定）
+  const todayStr = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+  const endDate = new Date(todayStr + "T00:00:00+09:00");
+  endDate.setDate(endDate.getDate() + 13);
+  const endStr = endDate.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 
   const { data: mealPlans } = await supabase
     .from("meal_plans")
