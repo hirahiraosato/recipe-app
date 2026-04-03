@@ -53,7 +53,7 @@ export async function addIngredientsToShopping(
   // 対象レシピの食材を取得
   const { data: ingredients, error: fetchError } = await supabase
     .from("ingredients")
-    .select("name, quantity, unit, category, recipe_id, recipes(title)")
+    .select("name, amount, unit, category, recipe_id, recipes(title)")
     .in("recipe_id", recipeIds);
 
   if (fetchError) return { error: fetchError.message };
@@ -63,7 +63,7 @@ export async function addIngredientsToShopping(
   const rows = ingredients.map((ing) => ({
     user_id: user.id,
     ingredient_name: ing.name,
-    quantity: ing.quantity != null ? String(ing.quantity) : null,
+    quantity: ing.amount != null ? String(ing.amount) : null,
     unit: ing.unit ?? null,
     category: ing.category ?? null,
     is_checked: false,

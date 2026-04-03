@@ -52,16 +52,17 @@ function aggregateItems(itemList: ShoppingItem[]): AggregatedItem[] {
   for (const [key, group] of map.entries()) {
     const ref = group[0];
 
-    // 数量を合算
+    // 数量を合算（DB から数値で返る場合も考慮して文字列に正規化）
     let totalNum: number | null = null;
     let hasQuantity = false;
     for (const it of group) {
-      if (it.quantity) {
-        const n = parseFraction(it.quantity);
-        if (n !== null) {
-          totalNum = (totalNum ?? 0) + n;
-          hasQuantity = true;
-        }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raw = it.quantity as any;
+      if (raw == null || raw === "") continue;
+      const n = typeof raw === "number" ? raw : parseFraction(String(raw));
+      if (n !== null) {
+        totalNum = (totalNum ?? 0) + n;
+        hasQuantity = true;
       }
     }
 
