@@ -12,22 +12,37 @@ export default async function MealPlansPage() {
     redirect("/login");
   }
 
-  // 今週の献立を取得
+  // 今日から14日分の献立を取得
   const today = new Date();
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - today.getDay() + 1);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
+  const todayStr = today.toISOString().split("T")[0];
+  const endDate = new Date(today);
+  endDate.setDate(today.getDate() + 13);
+  const endStr = endDate.toISOString().split("T")[0];
 
   const { data: mealPlans } = await supabase
     .from("meal_plans")
     .select(`
-      *,
+      id,
+      planned_date,
+      meal_type,
+      note,
       recipes (id, title, image_url, cooking_time_minutes)
     `)
-    .gte("planned_date", monday.toISOString().split("T")[0])
-    .lte("planned_date", sunday.toISOString().split("T")[0])
+    .gte("planned_date", todayStr)
+    .lte("planned_date", endStr)
     .order("planned_date", { ascending: true });
 
-  return <MealPlansClient initialMealPlans={mealPlans ?? []} weekStart={monday.toISOString()} />;
+  // ユーザーのレシピ一覧を取得（ピッカー用）
+  const { data: recipes } = await supabase
+    .from("recipes")
+    .select("id, title, image_url, cooking_time_minutes, category")
+    .order("created_at", { ascending: false });
+
+  return (
+    <MealPlansClient
+      initialMealPlans={mealPlans ?? []}
+      recipes={recipes ?? []}
+      todayStr={todayStr}
+    />
+  );
 }
