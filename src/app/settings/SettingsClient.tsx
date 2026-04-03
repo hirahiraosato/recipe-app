@@ -14,6 +14,7 @@ type FamilyMember = {
 type User = {
   email: string;
   id: string;
+  display_name: string | null;
 };
 
 function getAgeCoefficient(birthDate: string): number {
@@ -49,10 +50,26 @@ export default function SettingsClient({
   initialFamilyMembers: FamilyMember[];
 }) {
   const [familyMembers, setFamilyMembers] = useState(initialFamilyMembers);
+
+  // メンバー追加
   const [showAddMember, setShowAddMember] = useState(false);
   const [newName, setNewName] = useState("");
   const [newBirthDate, setNewBirthDate] = useState("");
   const [newRole, setNewRole] = useState("");
+
+  // メンバー編集
+  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editBirthDate, setEditBirthDate] = useState("");
+  const [editRole, setEditRole] = useState("");
+
+  // 表示名編集
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [displayName, setDisplayName] = useState(user.display_name ?? "");
+  const [displayNameInput, setDisplayNameInput] = useState(user.display_name ?? "");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState("");
+
   const router = useRouter();
   const supabase = createClient();
 
@@ -61,6 +78,23 @@ export default function SettingsClient({
     0
   );
 
+  // ---- プロフィール保存 ----
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
+    setProfileError("");
+    const { error } = await supabase.auth.updateUser({
+      data: { display_name: displayNameInput.trim() || null },
+    });
+    if (error) {
+      setProfileError("保存に失敗しました");
+    } else {
+      setDisplayName(displayNameInput.trim());
+      setShowEditProfile(false);
+    }
+    setSavingProfile(false);
+  };
+
+  // ---- メンバー追加 ----
   const handleAddMember = async () => {
     if (!newName || !newBirthDate) return;
     const { data, error } = await supabase
@@ -77,53 +111,107 @@ export default function SettingsClient({
     }
   };
 
+  // ---- メンバー編集開始 ----
+  const handleStartEdit = (member: FamilyMember) => {
+    setEditingMember(member);
+    setEditName(member.name);
+    setEditBirthDate(member.birth_date);
+    setEditRole(member.role ?? "");
+  };
+
+  // ---- メンバー編集保存 ----
+  const handleSaveEdit = async () => {
+    if (!editingMember || !editName || !editBirthDate) return;
+    const { data, error } = await supabase
+      .from("family_members")
+      .update({ name: editName, birth_date: editBirthDate, role: editRole || null })
+      .eq("id", editingMember.id)
+      .select()
+      .single();
+    if (!error && data) {
+      setFamilyMembers((prev) =>
+        prev.map((m) => (m.id === editingMember.id ? data : m))
+      );
+      setEditingMember(null);
+    }
+  };
+
+  // ---- メンバー削除 ----
   const handleDeleteMember = async (id: string) => {
     await supabase.from("family_members").delete().eq("id", id);
     setFamilyMembers((prev) => prev.filter((m) => m.id !== id));
+    setEditingMember(null);
   };
 
+  // ---- ログアウト ----
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
   };
 
+  const avatarLetter = (displayName || user.email).charAt(0).toUpperCase();
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-28">
       {/* ヘッダー */}
       <header className="bg-white sticky top-0 z-40 border-b border-gray-100 px-4 py-3">
         <h1 className="text-xl font-bold text-gray-800">設定</h1>
       </header>
 
       <div className="px-4 py-4 space-y-4">
-        {/* アカウント */}
+
+        {/* ===== アカウント ===== */}
         <section>
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
             アカウント
           </h2>
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-4 py-3.5 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
-                <span className="text-orange-500 font-bold text-lg">
-                  {user.email.charAt(0).toUpperCase()}
-                </span>
+            {/* アバター＋名前 */}
+            <button
+              onClick={() => {
+                setDisplayNameInput(displayName);
+                setProfileError("");
+                setShowEditProfile(true);
+              }}
+              className="w-full flex items-center gap-3 px-4 py-4 active:bg-gray-50 transition-colors"
+            >
+              <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                <span className="text-orange-500 font-bold text-xl">{avatarLetter}</span>
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-800">{user.email}</p>
-                <p className="text-xs text-gray-400">Googleアカウント</p>
+              <div className="flex-1 text-left">
+                {displayName ? (
+                  <>
+                    <p className="text-sm font-semibold text-gray-800">{displayName}</p>
+                    <p className="text-xs text-gray-400">{user.email}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-gray-800">{user.email}</p>
+                    <p className="text-xs text-orange-400">表示名を設定する →</p>
+                  </>
+                )}
               </div>
-            </div>
+              <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </button>
+
+            {/* ログアウト */}
             <div className="border-t border-gray-50">
               <button
                 onClick={handleLogout}
-                className="w-full px-4 py-3.5 text-left text-sm text-red-500 font-medium active:bg-gray-50"
+                className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-gray-50"
               >
-                ログアウト
+                <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span className="text-sm text-red-500 font-medium">ログアウト</span>
               </button>
             </div>
           </div>
         </section>
 
-        {/* 家族メンバー */}
+        {/* ===== 家族メンバー ===== */}
         <section>
           <div className="flex items-center justify-between mb-2 px-1">
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
@@ -135,9 +223,10 @@ export default function SettingsClient({
           </div>
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
             {familyMembers.map((member, idx) => (
-              <div
+              <button
                 key={member.id}
-                className={`flex items-center gap-3 px-4 py-3.5 ${
+                onClick={() => handleStartEdit(member)}
+                className={`w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50 transition-colors text-left ${
                   idx < familyMembers.length - 1 ? "border-b border-gray-50" : ""
                 }`}
               >
@@ -147,7 +236,12 @@ export default function SettingsClient({
                   </span>
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-800">{member.name}</p>
+                  <p className="text-sm font-medium text-gray-800">
+                    {member.name}
+                    {member.role && (
+                      <span className="ml-1.5 text-xs text-gray-400">({member.role})</span>
+                    )}
+                  </p>
                   <p className="text-xs text-gray-400">
                     {getAgeLabel(member.birth_date)} ·{" "}
                     <span className="text-orange-400">
@@ -155,18 +249,16 @@ export default function SettingsClient({
                     </span>
                   </p>
                 </div>
-                <button
-                  onClick={() => handleDeleteMember(member.id)}
-                  className="text-gray-300 active:text-red-400 transition-colors p-1"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
+                <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
             ))}
             <button
-              onClick={() => setShowAddMember(true)}
+              onClick={() => {
+                setNewName(""); setNewBirthDate(""); setNewRole("");
+                setShowAddMember(true);
+              }}
               className="w-full flex items-center gap-3 px-4 py-3.5 border-t border-gray-50 active:bg-gray-50 transition-colors"
             >
               <div className="w-9 h-9 rounded-full border-2 border-dashed border-orange-200 flex items-center justify-center flex-shrink-0">
@@ -179,12 +271,15 @@ export default function SettingsClient({
           </div>
         </section>
 
-        {/* 人前係数の説明 */}
+        {/* ===== 人前係数について ===== */}
         <section>
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
             人前係数について
           </h2>
           <div className="bg-white rounded-2xl shadow-sm px-4 py-4">
+            <p className="text-xs text-gray-400 mb-3">
+              年齢に応じてレシピの分量を自動調整するための係数です。
+            </p>
             <div className="space-y-1.5 text-sm text-gray-600">
               {[
                 ["0歳", "0.2人前"],
@@ -201,18 +296,83 @@ export default function SettingsClient({
             </div>
           </div>
         </section>
+
+        {/* ===== アプリ情報 ===== */}
+        <section>
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
+            アプリ情報
+          </h2>
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-gray-50">
+              <span className="text-sm text-gray-700">バージョン</span>
+              <span className="text-sm text-gray-400">1.0.0</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3.5">
+              <span className="text-sm text-gray-700">Made with</span>
+              <span className="text-sm text-gray-400">🍳 家族の味</span>
+            </div>
+          </div>
+        </section>
+
       </div>
 
-      {/* メンバー追加モーダル */}
+      {/* ===== 表示名編集モーダル ===== */}
+      {showEditProfile && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
+          <div
+            className="bg-white rounded-t-3xl w-full px-4 pt-5"
+            style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-gray-800">プロフィール編集</h3>
+              <button onClick={() => setShowEditProfile(false)} className="text-gray-400 p-1">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1.5 block">メールアドレス</label>
+                <div className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm text-gray-400">
+                  {user.email}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1.5 block">表示名</label>
+                <input
+                  type="text"
+                  placeholder="例: さとみ"
+                  value={displayNameInput}
+                  onChange={(e) => setDisplayNameInput(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                />
+              </div>
+              {profileError && (
+                <p className="text-xs text-red-500">{profileError}</p>
+              )}
+              <button
+                onClick={handleSaveProfile}
+                disabled={savingProfile}
+                className="w-full bg-orange-500 text-white py-4 rounded-2xl font-semibold text-base shadow-md disabled:opacity-50 active:scale-95 transition-transform"
+              >
+                {savingProfile ? "保存中..." : "保存する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== メンバー追加モーダル ===== */}
       {showAddMember && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
-          <div className="bg-white rounded-t-3xl w-full px-4 pt-5 pb-8" style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}>
+          <div
+            className="bg-white rounded-t-3xl w-full px-4 pt-5"
+            style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
+          >
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold text-gray-800">メンバーを追加</h3>
-              <button
-                onClick={() => setShowAddMember(false)}
-                className="text-gray-400 p-1"
-              >
+              <button onClick={() => setShowAddMember(false)} className="text-gray-400 p-1">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -254,6 +414,68 @@ export default function SettingsClient({
                 className="w-full bg-orange-500 text-white py-4 rounded-2xl font-semibold text-base shadow-md disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform"
               >
                 追加する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== メンバー編集モーダル ===== */}
+      {editingMember && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
+          <div
+            className="bg-white rounded-t-3xl w-full px-4 pt-5"
+            style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-gray-800">メンバーを編集</h3>
+              <button onClick={() => setEditingMember(null)} className="text-gray-400 p-1">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1.5 block">名前</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1.5 block">生年月日</label>
+                <input
+                  type="date"
+                  value={editBirthDate}
+                  onChange={(e) => setEditBirthDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1.5 block">役割（任意）</label>
+                <input
+                  type="text"
+                  placeholder="例: パパ、ママ"
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                />
+              </div>
+              <button
+                onClick={handleSaveEdit}
+                disabled={!editName || !editBirthDate}
+                className="w-full bg-orange-500 text-white py-4 rounded-2xl font-semibold text-base shadow-md disabled:opacity-50 active:scale-95 transition-transform"
+              >
+                保存する
+              </button>
+              <button
+                onClick={() => handleDeleteMember(editingMember.id)}
+                className="w-full py-3 rounded-2xl text-sm font-medium text-red-500 border border-red-200 active:bg-red-50 transition-colors"
+              >
+                このメンバーを削除する
               </button>
             </div>
           </div>
