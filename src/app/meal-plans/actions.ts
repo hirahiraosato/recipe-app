@@ -242,20 +242,31 @@ ${slotsDescription}
   ]
 }`;
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" },
-      }),
+  // 429リトライ付きfetch（最大3回、2秒間隔）
+  const res = await (async () => {
+    for (let i = 0; i < 3; i++) {
+      if (i > 0) await new Promise((r) => setTimeout(r, 2000 * i));
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json" },
+          }),
+        }
+      );
+      if (r.status !== 429 || i === 2) return r;
     }
-  );
+    throw new Error("unreachable");
+  })();
 
   if (res.status === 429) {
-    return { error: "AI API\u306E\u5229\u7528\u4E0A\u9650\u306B\u9054\u3057\u307E\u3057\u305F\u30011\u5206\u7A0B\u5EA6\u5F85\u3063\u3066\u304B\u3089\u518D\u8A66\u884C\u3057\u3066\u304F\u3060\u3055\u3044\u3002" };
+    return {
+      error:
+        "AI APIの利用上限に達しました。少し時間をおいてから再試行してください（目安：1分程度）。",
+    };
   }
 
   if (!res.ok) {
@@ -267,4 +278,18 @@ ${slotsDescription}
   const rawText: string =
     json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
-  
+  let parsed: { suggestions: MealSuggestion[] };
+  try {
+    parsed = JSON.parse(rawText);
+  } catch {
+    return { error: "AIの返答をパースできませんでした" };
+  }
+
+  // recipe_id が実在するか検証
+  const validIds = new Set(recipes.map((r) => r.id));
+  const validated = (parsed.suggestions || []).filter((s) =>
+    validIds.has(s.recipe_id)
+  );
+
+  return { data: validated };
+}

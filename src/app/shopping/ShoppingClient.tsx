@@ -16,24 +16,18 @@ type ShoppingItem = {
   unit: string | null;
   category: string | null;
   is_checked: boolean;
-  trip_half: number | null;
 };
 
 // 同名・同単位の食材を集約したビュー型
 type AggregatedItem = {
-  key: string;                 // ingredient_name + "|" + unit（グループキー）
+  key: string;
   ingredient_name: string;
-  totalQuantity: string | null; // 合算後の数量
+  totalQuantity: string | null;
   unit: string | null;
   category: string | null;
-  allChecked: boolean;          // 全ソースアイテムがチェック済みか
-  sourceIds: string[];          // 元アイテムのID一覧
-  sourceCount: number;          // 何品分まとめたか
-};
-
-const TRIP_LABELS: Record<number, string> = {
-  1: "前半",
-  2: "後半",
+  allChecked: boolean;
+  sourceIds: string[];
+  sourceCount: number;
 };
 
 const CATEGORIES = ["野菜", "肉類", "魚介類", "調味料", "その他"];
@@ -52,7 +46,6 @@ function aggregateItems(itemList: ShoppingItem[]): AggregatedItem[] {
   for (const [key, group] of map.entries()) {
     const ref = group[0];
 
-    // 数量を合算（DB から数値で返る場合も考慮して文字列に正規化）
     let totalNum: number | null = null;
     let hasQuantity = false;
     for (const it of group) {
@@ -87,13 +80,23 @@ export default function ShoppingClient({
   initialItems: ShoppingItem[];
 }) {
   const [items, setItems] = useState(initialItems);
-  const [activeTrip, setActiveTrip] = useState<1 | 2>(1);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [copyToast, setCopyToast] = useState(false);
 
+  const [newName, setNewName] = useState("");
+  const [newQty, setNewQty] = useState("");
+  const [newUnit, setNewUnit] = useState("");
+  const [newCategory, setNewCategory] = useState("その他");
+  const [addLoading, setAddLoading] = useState(false);
+
+  const aggregated = aggregateItems(items);
+  const uncheckedAgg = aggregated.filter((a) => !a.allChecked);
+  const checkedAgg = aggregated.filter((a) => a.allChecked);
+  const checkedSourceCount = items.filter((i) => i.is_checked).length;
+
   const handleCopyList = async () => {
-    const lines: string[] = [`【買い物リスト】${TRIP_LABELS[activeTrip]}`];
+    const lines: string[] = ["【買い物リスト】"];
     const groups = groupAggByCategory(uncheckedAgg);
     for (const [cat, catAggs] of Object.entries(groups)) {
       lines.push(`\n▼ ${cat}`);
@@ -114,26 +117,7 @@ export default function ShoppingClient({
     setTimeout(() => setCopyToast(false), 2000);
   };
 
-  const [newName, setNewName] = useState("");
-  const [newQty, setNewQty] = useState("");
-  const [newUnit, setNewUnit] = useState("");
-  const [newCategory, setNewCategory] = useState("その他");
-  const [addLoading, setAddLoading] = useState(false);
-
-  const tripItems = items.filter(
-    (item) => item.trip_half === activeTrip || item.trip_half === null
-  );
-
-  // 集約ビュー
-  const aggregated = aggregateItems(tripItems);
-  const uncheckedAgg = aggregated.filter((a) => !a.allChecked);
-  const checkedAgg = aggregated.filter((a) => a.allChecked);
-
-  // 元アイテム単位の残り数（チェックされていないソースアイテム数）
-  const uncheckedSourceCount = tripItems.filter((i) => !i.is_checked).length;
-  const checkedSourceCount = tripItems.filter((i) => i.is_checked).length;
-
-  // チェック（取り消し線）トグル — グループ内の全アイテムをまとめてトグル
+  // チェックトグル
   const handleToggle = async (agg: AggregatedItem) => {
     const newChecked = !agg.allChecked;
     setItems((prev) =>
@@ -146,7 +130,7 @@ export default function ShoppingClient({
     );
   };
 
-  // 個別削除 — グループ内の全アイテムを削除
+  // 個別削除
   const handleDelete = async (agg: AggregatedItem) => {
     setItems((prev) => prev.filter((i) => !agg.sourceIds.includes(i.id)));
     await deleteShoppingItems(agg.sourceIds);
@@ -154,7 +138,7 @@ export default function ShoppingClient({
 
   // 完了済みのみ削除
   const handleDeleteChecked = async () => {
-    const ids = tripItems.filter((i) => i.is_checked).map((i) => i.id);
+    const ids = items.filter((i) => i.is_checked).map((i) => i.id);
     setItems((prev) => prev.filter((i) => !ids.includes(i.id)));
     await deleteShoppingItems(ids);
     setShowResetConfirm(false);
@@ -162,8 +146,8 @@ export default function ShoppingClient({
 
   // 全削除
   const handleResetAll = async () => {
-    const ids = tripItems.map((i) => i.id);
-    setItems((prev) => prev.filter((i) => !ids.includes(i.id)));
+    const ids = items.map((i) => i.id);
+    setItems([]);
     await deleteShoppingItems(ids);
     setShowResetConfirm(false);
   };
@@ -178,7 +162,6 @@ export default function ShoppingClient({
         quantity: newQty.trim() || null,
         unit: newUnit.trim() || null,
         category: newCategory,
-        trip_half: activeTrip,
       });
       setItems((prev) => [...prev, item]);
       setNewName("");
@@ -205,7 +188,7 @@ export default function ShoppingClient({
 
   const uncheckedGroups = groupAggByCategory(uncheckedAgg);
 
-  /** アイテム行の共通UI */
+  /** アイテム行 */
   const ItemRow = ({
     agg,
     dimmed,
@@ -220,7 +203,6 @@ export default function ShoppingClient({
         borderBottom ? "border-b border-gray-50" : ""
       }`}
     >
-      {/* チェックボタン */}
       <button
         onClick={() => handleToggle(agg)}
         className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform ${
@@ -236,10 +218,8 @@ export default function ShoppingClient({
         )}
       </button>
 
-      {/* 食材名 */}
       <span className={`flex-1 text-sm text-left ${dimmed ? "line-through text-gray-400" : "text-gray-800"}`}>
         {agg.ingredient_name}
-        {/* 複数レシピからまとめた場合に件数表示 */}
         {agg.sourceCount > 1 && (
           <span className="ml-1.5 text-xs text-gray-400 not-italic">
             （{agg.sourceCount}品分）
@@ -247,7 +227,6 @@ export default function ShoppingClient({
         )}
       </span>
 
-      {/* 合計数量 */}
       {agg.totalQuantity !== null ? (
         <span className={`text-sm font-semibold flex-shrink-0 ${dimmed ? "text-gray-300" : "text-orange-500"}`}>
           {agg.totalQuantity}{agg.unit}
@@ -258,7 +237,6 @@ export default function ShoppingClient({
         </span>
       ) : null}
 
-      {/* 削除ボタン */}
       <button
         onClick={() => handleDelete(agg)}
         className={`w-7 h-7 flex items-center justify-center active:scale-90 transition-all flex-shrink-0 ${
@@ -276,34 +254,17 @@ export default function ShoppingClient({
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* ヘッダー */}
       <header className="bg-white sticky top-0 z-40 border-b border-gray-100">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between mb-3">
-            <h1 className="text-xl font-bold text-gray-800">買い物リスト</h1>
-            <button
-              onClick={handleCopyList}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 font-medium active:bg-gray-50 transition-colors"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              LINEで送る
-            </button>
-          </div>
-          <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
-            {([1, 2] as const).map((trip) => (
-              <button
-                key={trip}
-                onClick={() => setActiveTrip(trip)}
-                className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
-                  activeTrip === trip
-                    ? "bg-white text-orange-500 shadow-sm"
-                    : "text-gray-500"
-                }`}
-              >
-                {TRIP_LABELS[trip]}の買い物
-              </button>
-            ))}
-          </div>
+        <div className="px-4 py-3 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-gray-800">買い物リスト</h1>
+          <button
+            onClick={handleCopyList}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 font-medium active:bg-gray-50 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            LINEで送る
+          </button>
         </div>
       </header>
 
@@ -483,9 +444,6 @@ export default function ShoppingClient({
         >
           <div className="bg-white w-full rounded-t-3xl p-6 space-y-3">
             <h3 className="text-base font-bold text-gray-800 text-center">リセット方法を選択</h3>
-            <p className="text-xs text-gray-400 text-center">
-              現在表示中の「{TRIP_LABELS[activeTrip]}の買い物」が対象です
-            </p>
 
             {checkedSourceCount > 0 && (
               <button

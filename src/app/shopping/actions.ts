@@ -8,7 +8,6 @@ export async function addShoppingItem(data: {
   quantity: string | null;
   unit: string | null;
   category: string;
-  trip_half: number;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -23,7 +22,6 @@ export async function addShoppingItem(data: {
       unit: data.unit,
       category: data.category,
       is_checked: false,
-      trip_half: data.trip_half,
     })
     .select()
     .single();
