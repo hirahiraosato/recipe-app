@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { RECIPE_TAGS } from "@/lib/recipeTags";
 import { formatAmount } from "@/lib/fractionUtils";
+import AddToMealPlanModal from "@/components/AddToMealPlanModal";
 
 type Recipe = {
   id: string;
@@ -72,6 +73,7 @@ export default function RecipeDetailClient({
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showMealPlanModal, setShowMealPlanModal] = useState(false);
 
   // 家族全員の合計係数
   const totalCoefficient =
@@ -120,6 +122,16 @@ export default function RecipeDetailClient({
           <h1 className="text-base font-bold text-gray-800 flex-1 line-clamp-1">
             {recipe.title}
           </h1>
+          {/* 献立に追加ボタン */}
+          <button
+            onClick={() => setShowMealPlanModal(true)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-orange-50 border border-orange-200 text-orange-500 text-xs font-semibold active:bg-orange-100 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            献立
+          </button>
           <button
             onClick={() => router.push(`/recipes/${recipe.id}/edit`)}
             className="text-gray-400 p-1"
@@ -334,6 +346,15 @@ export default function RecipeDetailClient({
           </div>
         </div>
       </div>
+
+      {/* 献立追加モーダル */}
+      {showMealPlanModal && (
+        <AddToMealPlanModal
+          recipeId={recipe.id}
+          recipeTitle={recipe.title}
+          onClose={() => setShowMealPlanModal(false)}
+        />
+      )}
 
       {/* 削除確認ダイアログ */}
       {showDeleteConfirm && (

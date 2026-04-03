@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { RECIPE_TAGS } from "@/lib/recipeTags";
+import AddToMealPlanModal from "@/components/AddToMealPlanModal";
 
 type Recipe = {
   id: string;
@@ -22,6 +23,7 @@ export default function RecipesClient({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [mealPlanTarget, setMealPlanTarget] = useState<Recipe | null>(null);
 
   const toggleTag = (tagId: string) => {
     setSelectedTags((prev) =>
@@ -115,8 +117,9 @@ export default function RecipesClient({
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {filtered.map((recipe) => (
-              <Link key={recipe.id} href={`/recipes/${recipe.id}`}>
-                <div className="bg-white rounded-2xl overflow-hidden shadow-sm active:scale-95 transition-transform">
+              <div key={recipe.id} className="bg-white rounded-2xl overflow-hidden shadow-sm relative">
+                {/* カード本体 → 詳細ページへ */}
+                <Link href={`/recipes/${recipe.id}`} className="block active:opacity-80 transition-opacity">
                   <div className="aspect-square bg-orange-50 flex items-center justify-center">
                     {recipe.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -129,7 +132,7 @@ export default function RecipesClient({
                       <span className="text-4xl">🍽️</span>
                     )}
                   </div>
-                  <div className="p-3">
+                  <div className="p-3 pb-2">
                     <p className="text-sm font-semibold text-gray-800 line-clamp-2 leading-tight">
                       {recipe.title}
                     </p>
@@ -161,12 +164,34 @@ export default function RecipesClient({
                       </div>
                     )}
                   </div>
+                </Link>
+
+                {/* 献立追加ボタン */}
+                <div className="px-3 pb-3 pt-1">
+                  <button
+                    onClick={() => setMealPlanTarget(recipe)}
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-orange-200 bg-orange-50 text-orange-500 text-xs font-semibold active:bg-orange-100 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    献立に追加
+                  </button>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* 献立追加モーダル */}
+      {mealPlanTarget && (
+        <AddToMealPlanModal
+          recipeId={mealPlanTarget.id}
+          recipeTitle={mealPlanTarget.title}
+          onClose={() => setMealPlanTarget(null)}
+        />
+      )}
     </div>
   );
 }
