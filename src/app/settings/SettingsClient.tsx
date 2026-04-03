@@ -101,7 +101,7 @@ export default function SettingsClient({
     setAddError("");
     const { data, error } = await supabase
       .from("family_members")
-      .insert({ name: newName, birth_date: newBirthDate, role: newRole || null })
+      .insert({ user_id: user.id, name: newName, birth_date: newBirthDate, role: newRole || null })
       .select()
       .single();
     if (error) {
