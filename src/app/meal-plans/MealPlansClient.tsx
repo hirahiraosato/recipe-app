@@ -57,8 +57,8 @@ export default function MealPlansClient({
   const [pickerTarget, setPickerTarget] = useState<{ date: string; mealType: "breakfast" | "lunch" | "dinner" } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [saving, setSaving] = useState(false);
-  // 買い物リスト追加中の日付
-  const [addingShoppingDate, setAddingShoppingDate] = useState<string | null>(null);
+  // 買い物リスト追加中のキー（日・食事・レシピ単位で識別）
+  const [addingShoppingKey, setAddingShoppingKey] = useState<string | null>(null);
   // 完了トースト
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
@@ -125,17 +125,15 @@ export default function MealPlansClient({
     }
   };
 
-  const handleAddToShopping = async (dateStr: string, dayLabel: string) => {
-    const dayMeals = getDayMeals(dateStr);
-    // new Set() は使わず重複を保持する（同レシピを複数登録した場合に必要量×回数分追加するため）
-    const recipeIds = dayMeals.map((m) => m.recipes?.id).filter(Boolean) as string[];
+  // 買い物リストへ追加（日・食事・レシピ単位で共通）
+  const handleAddToShopping = async (recipeIds: string[], loadingKey: string) => {
     if (recipeIds.length === 0) {
-      showToast("この日にレシピが登録されていません", "error");
+      showToast("レシピが登録されていません", "error");
       return;
     }
-    setAddingShoppingDate(dateStr);
-    const result = await addIngredientsToShopping(recipeIds, dateStr);
-    setAddingShoppingDate(null);
+    setAddingShoppingKey(loadingKey);
+    const result = await addIngredientsToShopping(recipeIds, loadingKey);
+    setAddingShoppingKey(null);
     if (result.error) {
       showToast(result.error, "error");
     } else {
@@ -173,7 +171,10 @@ export default function MealPlansClient({
           {dates.map((dateStr) => {
             const { main, sub, isToday, isTomorrow, isSat, isSun } = formatDateLabel(dateStr, todayStr);
             const dayMealCount = getDayMeals(dateStr).length;
-            const isAddingShopping = addingShoppingDate === dateStr;
+            const dayRecipeIds = getDayMeals(dateStr)
+              .map((m) => m.recipes?.id)
+              .filter(Boolean) as string[];
+            const isDayLoading = addingShoppingKey === `day-${dateStr}`;
 
             return (
               <div
@@ -193,21 +194,21 @@ export default function MealPlansClient({
                     <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full font-medium">今日</span>
                   )}
 
-                  {/* 買い物リスト追加ボタン */}
+                  {/* 日単位：まとめて買い物リストへ */}
                   {dayMealCount > 0 && (
                     <button
-                      onClick={() => handleAddToShopping(dateStr, main)}
-                      disabled={isAddingShopping}
+                      onClick={() => handleAddToShopping(dayRecipeIds, `day-${dateStr}`)}
+                      disabled={!!addingShoppingKey}
                       className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-xs text-gray-500 active:bg-gray-50 transition-colors disabled:opacity-50"
                     >
-                      {isAddingShopping ? (
+                      {isDayLoading ? (
                         <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
                       ) : (
                         <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
                       )}
-                      <span>買い物リストへ</span>
+                      <span>この日まとめて</span>
                     </button>
                   )}
                 </div>
@@ -216,17 +217,41 @@ export default function MealPlansClient({
                 <div className="divide-y divide-gray-50">
                   {MEAL_TYPES.map(({ key, label, emoji }) => {
                     const meals = getMeals(dateStr, key);
+                    const mealRecipeIds = meals.map((m) => m.recipes?.id).filter(Boolean) as string[];
+                    const mealLoadingKey = `meal-${dateStr}-${key}`;
+                    const isMealLoading = addingShoppingKey === mealLoadingKey;
+
                     return (
                       <div key={key} className="px-4 py-3">
                         <div className="flex items-start gap-3">
+                          {/* 食事アイコン＋食事単位の買い物ボタン */}
                           <div className="w-8 flex flex-col items-center flex-shrink-0 pt-1">
                             <span className="text-base">{emoji}</span>
                             <span className="text-xs text-gray-400 font-medium">{label}</span>
+                            {meals.length > 0 && (
+                              <button
+                                onClick={() => handleAddToShopping(mealRecipeIds, mealLoadingKey)}
+                                disabled={!!addingShoppingKey}
+                                className="mt-1 w-7 h-7 rounded-full bg-orange-50 border border-orange-200 flex items-center justify-center disabled:opacity-40 active:bg-orange-100 transition-colors"
+                                title={`${label}ごはんを買い物リストへ`}
+                              >
+                                {isMealLoading ? (
+                                  <div className="w-3 h-3 border border-orange-400 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <svg className="w-3.5 h-3.5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                                  </svg>
+                                )}
+                              </button>
+                            )}
                           </div>
 
                           <div className="flex-1 min-w-0 space-y-2">
                             {/* 登録済みレシピ */}
-                            {meals.map((meal) => (
+                            {meals.map((meal) => {
+                              const recipeLoadingKey = `recipe-${meal.id}`;
+                              const isRecipeLoading = addingShoppingKey === recipeLoadingKey;
+                              return (
                               <div key={meal.id} className="flex items-center gap-2">
                                 {/* サムネ → 詳細ページへ */}
                                 <button
@@ -242,7 +267,6 @@ export default function MealPlansClient({
                                 </button>
 
                                 <div className="flex-1 min-w-0">
-                                  {/* タイトル → 詳細ページへ */}
                                   <button
                                     onClick={() => router.push(`/recipes/${meal.recipes?.id}`)}
                                     className="text-left w-full active:opacity-70 transition-opacity"
@@ -254,7 +278,23 @@ export default function MealPlansClient({
                                   </button>
                                 </div>
 
-                                {/* 詳細へのリンクアイコン */}
+                                {/* レシピ単位：買い物リストへ */}
+                                <button
+                                  onClick={() => meal.recipes?.id && handleAddToShopping([meal.recipes.id], recipeLoadingKey)}
+                                  disabled={!!addingShoppingKey}
+                                  className="w-7 h-7 rounded-full bg-orange-50 border border-orange-200 flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:bg-orange-100 transition-colors"
+                                  title="この1品だけ買い物リストへ"
+                                >
+                                  {isRecipeLoading ? (
+                                    <div className="w-3 h-3 border border-orange-400 border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <svg className="w-3.5 h-3.5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                  )}
+                                </button>
+
+                                {/* 詳細リンク */}
                                 <button
                                   onClick={() => router.push(`/recipes/${meal.recipes?.id}`)}
                                   className="w-7 h-7 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center flex-shrink-0 active:bg-orange-50 transition-colors"
@@ -275,7 +315,8 @@ export default function MealPlansClient({
                                   </svg>
                                 </button>
                               </div>
-                            ))}
+                            )})}
+
 
                             {/* 追加ボタン */}
                             <button
