@@ -11,6 +11,7 @@ import { uploadRecipeImage } from "@/lib/imageUpload";
 
 type Ingredient = {
   id?: string;
+  group_label: string;  // "A", "B", "下味" など（省略可）
   name: string;
   amount: string;   // 表示・編集用の文字列（"1/2", "2/3", "100" など）
   unit: string;
@@ -20,6 +21,7 @@ type Ingredient = {
 
 type IngredientFromDB = {
   id?: string;
+  group_label?: string | null;
   name: string;
   amount: number | null;
   unit: string;
@@ -49,10 +51,12 @@ export default function EditRecipeClient({
   recipe,
   ingredients: initialIngredients,
   steps: initialSteps,
+  allIngredientNames,
 }: {
   recipe: Recipe;
   ingredients: IngredientFromDB[];
   steps: Step[];
+  allIngredientNames: string[];
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -77,9 +81,10 @@ export default function EditRecipeClient({
     initialIngredients.length > 0
       ? initialIngredients.map((ing) => ({
           ...ing,
+          group_label: ing.group_label ?? "",
           amount: ing.amount !== null && ing.amount !== undefined ? formatAmount(ing.amount) : "",
         }))
-      : [{ name: "", amount: "", unit: "", category: "その他", order_index: 0 }]
+      : [{ group_label: "", name: "", amount: "", unit: "", category: "その他", order_index: 0 }]
   );
   const [steps, setSteps] = useState<Step[]>(
     initialSteps.length > 0
@@ -88,7 +93,7 @@ export default function EditRecipeClient({
   );
 
   const addIngredient = () => {
-    setIngredients([...ingredients, { name: "", amount: "", unit: "", category: "その他", order_index: ingredients.length }]);
+    setIngredients([...ingredients, { group_label: "", name: "", amount: "", unit: "", category: "その他", order_index: ingredients.length }]);
   };
 
   const removeIngredient = (i: number) => {
@@ -151,6 +156,7 @@ export default function EditRecipeClient({
       const { error: ingError } = await supabase.from("ingredients").insert(
         validIngredients.map((ing, i) => ({
           recipe_id: recipe.id,
+          group_label: ing.group_label.trim() || null,
           name: ing.name.trim(),
           amount: parseFraction(ing.amount),
           unit: ing.unit || "",
@@ -276,11 +282,36 @@ export default function EditRecipeClient({
 
         {/* 材料 */}
         <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <h2 className="text-base font-bold text-gray-800 mb-3">材料</h2>
+          <h2 className="text-base font-bold text-gray-800 mb-1">材料</h2>
+          <p className="text-xs text-gray-400 mb-3">
+            グループ欄に「A」「B」「下味」などを入れると、材料名と区別して管理できます（買い物リストには材料名のみ反映）
+          </p>
+
+          {/* オートコンプリート候補 */}
+          <datalist id="ingredient-names">
+            {allIngredientNames.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+
           <div className="space-y-2">
             {ingredients.map((ing, i) => (
-              <div key={i} className="flex items-center gap-2">
+              <div key={i} className="flex items-center gap-1.5">
+                {/* グループラベル（省略可能） */}
                 <input
+                  value={ing.group_label}
+                  onChange={(e) => {
+                    const n = [...ingredients];
+                    n[i] = { ...n[i], group_label: e.target.value };
+                    setIngredients(n);
+                  }}
+                  placeholder="A"
+                  maxLength={4}
+                  className="w-10 text-center text-xs border border-gray-200 rounded-lg px-1 py-2 focus:outline-none focus:border-orange-400 text-orange-500 font-bold"
+                />
+                {/* 材料名（オートコンプリート付き） */}
+                <input
+                  list="ingredient-names"
                   value={ing.name}
                   onChange={(e) => {
                     const n = [...ingredients];

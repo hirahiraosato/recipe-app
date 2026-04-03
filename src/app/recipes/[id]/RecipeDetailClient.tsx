@@ -20,6 +20,7 @@ type Recipe = {
 
 type Ingredient = {
   id: string;
+  group_label: string | null;
   name: string;
   amount: number | null;
   unit: string;
@@ -240,7 +241,14 @@ export default function RecipeDetailClient({
                               key={ing.id}
                               className="flex items-center justify-between py-1 border-b border-gray-50 last:border-0"
                             >
-                              <span className="text-sm text-gray-700">{ing.name}</span>
+                              <span className="text-sm text-gray-700 flex items-center gap-1.5">
+                                {ing.group_label && (
+                                  <span className="text-xs font-bold text-orange-400 bg-orange-50 px-1.5 py-0.5 rounded">
+                                    {ing.group_label}
+                                  </span>
+                                )}
+                                {ing.name}
+                              </span>
                               <span className="text-sm font-medium text-gray-800">
                                 {scaledAmount !== null
                                   ? `${formatAmount(scaledAmount)}${ing.unit}`

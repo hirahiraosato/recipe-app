@@ -32,11 +32,19 @@ export default async function EditRecipePage({
     .eq("recipe_id", params.id)
     .order("step_number");
 
+  // 食材名のオートコンプリート候補（ユーザーが登録済みの全食材名を重複なしで取得）
+  const { data: allIngredientsRaw } = await supabase
+    .from("ingredients")
+    .select("name")
+    .order("name");
+  const allIngredientNames = [...new Set((allIngredientsRaw || []).map((i) => i.name).filter(Boolean))];
+
   return (
     <EditRecipeClient
       recipe={recipe}
       ingredients={ingredients || []}
       steps={steps || []}
+      allIngredientNames={allIngredientNames}
     />
   );
 }
