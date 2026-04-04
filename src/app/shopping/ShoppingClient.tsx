@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { parseFraction, formatAmount } from "@/lib/fractionUtils";
 import {
   addShoppingItem,
   deleteShoppingItem,
   toggleShoppingItem,
   deleteShoppingItems,
+  togglePendingShoppingItem,
 } from "./actions";
 
 type ShoppingItem = {
@@ -16,6 +17,7 @@ type ShoppingItem = {
   unit: string | null;
   category: string | null;
   is_checked: boolean;
+  is_pending: boolean;
 };
 
 // 同名・同単位の食材を集約したビュー型
@@ -26,6 +28,7 @@ type AggregatedItem = {
   unit: string | null;
   category: string | null;
   allChecked: boolean;
+  allPending: boolean;
   sourceIds: string[];
   sourceCount: number;
 };
@@ -66,6 +69,7 @@ function aggregateItems(itemList: ShoppingItem[]): AggregatedItem[] {
       unit: ref.unit,
       category: ref.category,
       allChecked: group.every((i) => i.is_checked),
+      allPending: group.every((i) => i.is_pending),
       sourceIds: group.map((i) => i.id),
       sourceCount: group.length,
     });
@@ -83,6 +87,8 @@ export default function ShoppingClient({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [copyToast, setCopyToast] = useState(false);
+  const [contextMenuAgg, setContextMenuAgg] = useState<AggregatedItem | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [newName, setNewName] = useState("");
   const [newQty, setNewQty] = useState("");
@@ -128,6 +134,33 @@ export default function ShoppingClient({
     await Promise.all(
       agg.sourceIds.map((id) => toggleShoppingItem(id, newChecked))
     );
+  };
+
+  // 長押し開始・終了
+  const handleLongPressStart = (agg: AggregatedItem) => {
+    longPressTimer.current = setTimeout(() => {
+      setContextMenuAgg(agg);
+    }, 500);
+  };
+  const handleLongPressEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  // 保留トグル
+  const handleTogglePending = async (agg: AggregatedItem) => {
+    const newPending = !agg.allPending;
+    setItems((prev) =>
+      prev.map((i) =>
+        agg.sourceIds.includes(i.id) ? { ...i, is_pending: newPending } : i
+      )
+    );
+    await Promise.all(
+      agg.sourceIds.map((id) => togglePendingShoppingItem(id, newPending))
+    );
+    setContextMenuAgg(null);
   };
 
   // 個別削除
@@ -199,15 +232,23 @@ export default function ShoppingClient({
     borderBottom?: boolean;
   }) => (
     <div
-      className={`flex items-center gap-3 px-4 py-3.5 ${
+      className={`flex items-center gap-3 px-4 py-3.5 select-none ${
         borderBottom ? "border-b border-gray-50" : ""
-      }`}
+      } ${agg.allPending ? "bg-gray-50/60" : ""}`}
+      onTouchStart={() => handleLongPressStart(agg)}
+      onTouchEnd={handleLongPressEnd}
+      onTouchMove={handleLongPressEnd}
+      onMouseDown={() => handleLongPressStart(agg)}
+      onMouseUp={handleLongPressEnd}
+      onMouseLeave={handleLongPressEnd}
     >
       <button
         onClick={() => handleToggle(agg)}
         className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform ${
           agg.allChecked
             ? "bg-orange-400"
+            : agg.allPending
+            ? "border-2 border-gray-300"
             : "border-2 border-orange-300"
         }`}
       >
@@ -218,21 +259,24 @@ export default function ShoppingClient({
         )}
       </button>
 
-      <span className={`flex-1 text-sm text-left ${dimmed ? "line-through text-gray-400" : "text-gray-800"}`}>
+      <span className={`flex-1 text-sm text-left ${dimmed ? "line-through text-gray-400" : agg.allPending ? "text-gray-400" : "text-gray-800"}`}>
         {agg.ingredient_name}
         {agg.sourceCount > 1 && (
           <span className="ml-1.5 text-xs text-gray-400 not-italic">
             （{agg.sourceCount}品分）
           </span>
         )}
+        {agg.allPending && (
+          <span className="ml-2 text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">保留</span>
+        )}
       </span>
 
       {agg.totalQuantity !== null ? (
-        <span className={`text-sm font-semibold flex-shrink-0 ${dimmed ? "text-gray-300" : "text-orange-500"}`}>
+        <span className={`text-sm font-semibold flex-shrink-0 ${dimmed || agg.allPending ? "text-gray-300" : "text-orange-500"}`}>
           {agg.totalQuantity}{agg.unit}
         </span>
       ) : agg.unit ? (
-        <span className={`text-sm flex-shrink-0 ${dimmed ? "text-gray-300" : "text-gray-400"}`}>
+        <span className={`text-sm flex-shrink-0 ${dimmed || agg.allPending ? "text-gray-300" : "text-gray-400"}`}>
           {agg.unit}
         </span>
       ) : null}
@@ -240,7 +284,7 @@ export default function ShoppingClient({
       <button
         onClick={() => handleDelete(agg)}
         className={`w-7 h-7 flex items-center justify-center active:scale-90 transition-all flex-shrink-0 ${
-          dimmed ? "text-gray-200 hover:text-red-300" : "text-gray-300 hover:text-red-400"
+          dimmed || agg.allPending ? "text-gray-200 hover:text-red-300" : "text-gray-300 hover:text-red-400"
         }`}
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -433,6 +477,36 @@ export default function ShoppingClient({
       {copyToast && (
         <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[70] bg-gray-800 text-white text-sm font-medium px-4 py-2.5 rounded-2xl shadow-lg whitespace-nowrap">
           ✓ コピーしました
+        </div>
+      )}
+
+      {/* 長押しコンテキストメニュー */}
+      {contextMenuAgg && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-end"
+          onClick={() => setContextMenuAgg(null)}
+        >
+          <div className="bg-white w-full rounded-t-3xl p-6 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <p className="text-sm font-bold text-gray-800 text-center line-clamp-1">{contextMenuAgg.ingredient_name}</p>
+            <button
+              onClick={() => handleTogglePending(contextMenuAgg)}
+              className="w-full bg-gray-50 text-gray-700 border border-gray-200 py-3.5 rounded-xl font-bold text-sm active:scale-95 transition-transform"
+            >
+              {contextMenuAgg.allPending ? "保留を解除する" : "保留にする"}
+            </button>
+            <button
+              onClick={() => { handleDelete(contextMenuAgg); setContextMenuAgg(null); }}
+              className="w-full bg-red-50 text-red-500 border border-red-200 py-3.5 rounded-xl font-bold text-sm active:scale-95 transition-transform"
+            >
+              削除する
+            </button>
+            <button
+              onClick={() => setContextMenuAgg(null)}
+              className="w-full bg-gray-100 text-gray-600 py-3 rounded-xl font-semibold text-sm"
+            >
+              キャンセル
+            </button>
+          </div>
         </div>
       )}
 

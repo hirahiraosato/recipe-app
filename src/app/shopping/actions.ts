@@ -56,6 +56,19 @@ export async function toggleShoppingItem(id: string, isChecked: boolean) {
     .eq("user_id", user.id);
 }
 
+// 保留トグル
+export async function togglePendingShoppingItem(id: string, isPending: boolean) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("未ログイン");
+
+  await supabase
+    .from("shopping_items")
+    .update({ is_pending: isPending })
+    .eq("id", id)
+    .eq("user_id", user.id);
+}
+
 // 複数アイテムを一括削除（リセット）
 export async function deleteShoppingItems(ids: string[]) {
   if (ids.length === 0) return;
