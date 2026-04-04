@@ -245,8 +245,8 @@ ${slotsDescription}
   // モデル候補（429時に順に切り替え）
   const models = [
     "gemini-2.0-flash-lite",
-    "gemini-1.5-flash",
     "gemini-2.0-flash",
+    "gemini-2.5-flash",
   ];
 
   const callGemini = async (model: string) => {
