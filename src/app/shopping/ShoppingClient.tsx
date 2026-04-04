@@ -88,6 +88,7 @@ export default function ShoppingClient({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [copyToast, setCopyToast] = useState(false);
   const [contextMenuAgg, setContextMenuAgg] = useState<AggregatedItem | null>(null);
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [newName, setNewName] = useState("");
@@ -232,15 +233,14 @@ export default function ShoppingClient({
     borderBottom?: boolean;
   }) => (
     <div
-      className={`flex items-center gap-3 px-4 py-3.5 select-none ${
+      className={`flex items-center gap-3 px-4 py-3.5 select-none group ${
         borderBottom ? "border-b border-gray-50" : ""
       } ${agg.allPending ? "bg-gray-50/60" : ""}`}
       onTouchStart={() => handleLongPressStart(agg)}
       onTouchEnd={handleLongPressEnd}
       onTouchMove={handleLongPressEnd}
-      onMouseDown={() => handleLongPressStart(agg)}
-      onMouseUp={handleLongPressEnd}
-      onMouseLeave={handleLongPressEnd}
+      onMouseEnter={() => setHoveredKey(agg.key)}
+      onMouseLeave={() => setHoveredKey(null)}
     >
       <button
         onClick={() => handleToggle(agg)}
@@ -280,6 +280,18 @@ export default function ShoppingClient({
           {agg.unit}
         </span>
       ) : null}
+
+      {/* PC: ホバー時に⋯ボタン表示 */}
+      <button
+        onClick={() => setContextMenuAgg(agg)}
+        className={`w-7 h-7 flex items-center justify-center flex-shrink-0 transition-all rounded-full hover:bg-gray-100 text-gray-400
+          ${hoveredKey === agg.key ? "opacity-100" : "opacity-0 pointer-events-none"}
+          hidden md:flex`}
+      >
+        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 5.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 5.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" />
+        </svg>
+      </button>
 
       <button
         onClick={() => handleDelete(agg)}
