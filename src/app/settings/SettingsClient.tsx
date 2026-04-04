@@ -83,6 +83,11 @@ export default function SettingsClient({
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
 
+  // エクスポート/インポート
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
+
   const router = useRouter();
   const supabase = createClient();
 
@@ -90,6 +95,149 @@ export default function SettingsClient({
     (sum, m) => sum + getAgeCoefficient(m),
     0
   );
+
+  // ---- エクスポート ----
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const { data: recipes } = await supabase
+        .from("recipes")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      if (!recipes || recipes.length === 0) {
+        alert("エクスポートするレシピがありません");
+        setExporting(false);
+        return;
+      }
+
+      const recipeIds = recipes.map((r) => r.id);
+
+      const { data: ingredients } = await supabase
+        .from("ingredients")
+        .select("*")
+        .in("recipe_id", recipeIds)
+        .order("order_index", { ascending: true });
+
+      const { data: steps } = await supabase
+        .from("recipe_steps")
+        .select("*")
+        .in("recipe_id", recipeIds)
+        .order("step_number", { ascending: true });
+
+      const exportData = {
+        version: 1,
+        exported_at: new Date().toISOString(),
+        recipes: recipes.map((r) => ({
+          ...r,
+          ingredients: (ingredients || []).filter((i) => i.recipe_id === r.id),
+          steps: (steps || []).filter((s) => s.recipe_id === r.id),
+        })),
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `recipes_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("エクスポートに失敗しました");
+    }
+    setExporting(false);
+  };
+
+  // ---- インポート ----
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      const recipesToImport = json.recipes ?? [];
+
+      if (!Array.isArray(recipesToImport) || recipesToImport.length === 0) {
+        setImportResult("レシピが見つかりませんでした");
+        setImporting(false);
+        return;
+      }
+
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error("未ログイン");
+
+      let imported = 0;
+      let skipped = 0;
+
+      for (const r of recipesToImport) {
+        // レシピ本体を挿入（IDは新規生成、user_idは現在のユーザー）
+        const { data: newRecipe, error: recipeError } = await supabase
+          .from("recipes")
+          .insert({
+            user_id: currentUser.id,
+            title: r.title,
+            source_url: r.source_url ?? null,
+            image_url: null, // 画像はURLが変わる可能性があるため除外
+            description: r.description ?? null,
+            servings_base: r.servings_base ?? 2,
+            cooking_time_minutes: r.cooking_time_minutes ?? null,
+            category: r.category ?? null,
+            notes: r.notes ?? null,
+            tags: r.tags ?? [],
+            is_favorite: r.is_favorite ?? false,
+          })
+          .select()
+          .single();
+
+        if (recipeError || !newRecipe) {
+          skipped++;
+          continue;
+        }
+
+        // 材料を挿入
+        if (Array.isArray(r.ingredients) && r.ingredients.length > 0) {
+          await supabase.from("ingredients").insert(
+            r.ingredients.map((ing: Record<string, unknown>, i: number) => ({
+              recipe_id: newRecipe.id,
+              group_label: ing.group_label ?? null,
+              name: ing.name,
+              amount: ing.amount ?? null,
+              unit: ing.unit ?? "",
+              category: ing.category ?? "その他",
+              order_index: ing.order_index ?? i,
+            }))
+          );
+        }
+
+        // 手順を挿入
+        if (Array.isArray(r.steps) && r.steps.length > 0) {
+          await supabase.from("recipe_steps").insert(
+            r.steps.map((s: Record<string, unknown>, i: number) => ({
+              recipe_id: newRecipe.id,
+              step_number: s.step_number ?? i + 1,
+              step_text: s.step_text,
+            }))
+          );
+        }
+
+        imported++;
+      }
+
+      setImportResult(`${imported}件のレシピをインポートしました${skipped > 0 ? `（${skipped}件スキップ）` : ""}`);
+      router.refresh();
+    } catch (e) {
+      setImportResult("インポートに失敗しました。ファイルを確認してください");
+    }
+
+    setImporting(false);
+    // input をリセット
+    e.target.value = "";
+  };
 
   // ---- プロフィール保存 ----
   const handleSaveProfile = async () => {
@@ -383,6 +531,51 @@ export default function SettingsClient({
                 大食いのメンバーは各自の設定で 0.8 〜 2.0人前 に変更できます。
               </p>
             </div>
+          </div>
+        </section>
+
+        {/* ===== データ管理 ===== */}
+        <section>
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
+            データ管理
+          </h2>
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            {/* エクスポート */}
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-gray-50">
+              <div>
+                <p className="text-sm text-gray-700">レシピをエクスポート</p>
+                <p className="text-xs text-gray-400 mt-0.5">全レシピをJSONファイルで保存</p>
+              </div>
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                className="text-sm text-orange-500 font-medium disabled:opacity-50"
+              >
+                {exporting ? "処理中..." : "ダウンロード"}
+              </button>
+            </div>
+            {/* インポート */}
+            <div className="flex items-center justify-between px-4 py-3.5">
+              <div>
+                <p className="text-sm text-gray-700">レシピをインポート</p>
+                <p className="text-xs text-gray-400 mt-0.5">JSONファイルから読み込み（追加）</p>
+              </div>
+              <label className={`text-sm text-orange-500 font-medium cursor-pointer ${importing ? "opacity-50 pointer-events-none" : ""}`}>
+                {importing ? "処理中..." : "ファイル選択"}
+                <input
+                  type="file"
+                  accept="application/json"
+                  className="hidden"
+                  onChange={handleImport}
+                  disabled={importing}
+                />
+              </label>
+            </div>
+            {importResult && (
+              <div className="px-4 py-2 bg-orange-50 text-xs text-orange-700 border-t border-orange-100">
+                {importResult}
+              </div>
+            )}
           </div>
         </section>
 
