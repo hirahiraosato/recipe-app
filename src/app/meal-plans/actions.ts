@@ -386,10 +386,11 @@ export async function getMealPlanTemplates() {
   return { data: data ?? [] };
 }
 
-/** テンプレートを指定開始日に適用 */
+/** テンプレートを指定日・食事タイプに適用（1食分） */
 export async function applyMealPlanTemplate(
   templateId: string,
-  startDate: string   // day_offset=0 がこの日
+  targetDate: string,
+  targetMealType: string
 ) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -397,21 +398,17 @@ export async function applyMealPlanTemplate(
 
   const { data: items, error: fetchErr } = await supabase
     .from("meal_plan_template_items")
-    .select("day_offset, meal_type, recipe_id, role")
+    .select("recipe_id, role")
     .eq("template_id", templateId);
   if (fetchErr || !items?.length) return { error: "テンプレートが空です" };
 
-  const rows = items.map((item) => {
-    const d = new Date(startDate + "T00:00:00");
-    d.setDate(d.getDate() + item.day_offset);
-    return {
-      user_id: user.id,
-      planned_date: d.toISOString().split("T")[0],
-      meal_type: item.meal_type,
-      recipe_id: item.recipe_id,
-      role: item.role,
-    };
-  });
+  const rows = items.map((item) => ({
+    user_id: user.id,
+    planned_date: targetDate,
+    meal_type: targetMealType,
+    recipe_id: item.recipe_id,
+    role: item.role,
+  }));
 
   const { error: insertErr } = await supabase.from("meal_plans").insert(rows);
   if (insertErr) return { error: insertErr.message };
