@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { parseFraction, formatAmount } from "@/lib/fractionUtils";
+import { INGREDIENT_CATEGORIES } from "@/lib/ingredientCategories";
 import {
   addShoppingItem,
   deleteShoppingItem,
@@ -33,7 +34,7 @@ type AggregatedItem = {
   sourceCount: number;
 };
 
-const CATEGORIES = ["野菜", "肉類", "魚介類", "調味料", "その他"];
+const CATEGORIES = INGREDIENT_CATEGORIES;
 
 /** 同名・同単位でまとめて数量合算 */
 function aggregateItems(itemList: ShoppingItem[]): AggregatedItem[] {

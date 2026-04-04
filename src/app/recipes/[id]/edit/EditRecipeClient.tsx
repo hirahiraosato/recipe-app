@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { RECIPE_TAGS } from "@/lib/recipeTags";
 import { parseFraction, formatAmount } from "@/lib/fractionUtils";
 import { RECIPE_CATEGORIES } from "@/lib/recipeCategories";
+import { INGREDIENT_CATEGORIES } from "@/lib/ingredientCategories";
 import RecipeImagePicker from "@/components/RecipeImagePicker";
 import { uploadRecipeImage } from "@/lib/imageUpload";
 
@@ -364,7 +365,7 @@ export default function EditRecipeClient({
                     }}
                     className="text-xs text-gray-500 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-orange-400 bg-white"
                   >
-                    {["野菜", "肉類", "魚介類", "調味料", "その他"].map((cat) => (
+                    {INGREDIENT_CATEGORIES.map((cat) => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
