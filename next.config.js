@@ -1,3 +1,14 @@
+const withPWA = require("@ducanh2912/next-pwa").default({
+  dest: "public",
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
+  reloadOnOnline: true,
+  disable: process.env.NODE_ENV === "development",
+  workboxOptions: {
+    disableDevLogs: true,
+  },
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -8,7 +19,7 @@ const nextConfig = {
       },
     ],
   },
-  // ビルド時のTypeScriptエラーとESLintエラーを無視（初回デプロイ用）
+  // ビルド時のTypeScriptエラーとESLintエラーを無視
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -17,4 +28,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withPWA(nextConfig);
