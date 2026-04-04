@@ -68,10 +68,12 @@ export default function AISuggestModal({ todayStr, onClose, onApplied }: Props) 
       setError("提案が生成できませんでした。もう一度お試しください。");
     } else {
       setSuggestions(result.data);
-      // 全選択状態で開始
+      // 全選択状態で開始（スロット単位）
       setSelected(new Set(result.data.map((s) => `${s.date}|${s.meal_type}`)));
     }
   };
+
+  const slotKey = (s: MealSuggestion) => `${s.date}|${s.meal_type}`;
 
   const toggleSelect = (key: string) => {
     setSelected((prev) => {
@@ -85,32 +87,38 @@ export default function AISuggestModal({ todayStr, onClose, onApplied }: Props) 
   const handleApply = async () => {
     if (!suggestions) return;
     setApplying(true);
-    const toApply = suggestions.filter((s) =>
-      selected.has(`${s.date}|${s.meal_type}`)
-    );
+    const toApply = suggestions.filter((s) => selected.has(slotKey(s)));
     for (const s of toApply) {
-      await addMealPlan(s.date, s.meal_type, s.recipe_id);
+      await addMealPlan(s.date, s.meal_type, s.recipe_id, s.role);
     }
     setApplying(false);
     onApplied();
     onClose();
   };
 
-  // 提案を日付順・食事種別順でグループ化
-  const grouped: Record<string, MealSuggestion[]> = {};
+  // 提案を日付 > 食事タイプ > role順でグループ化
+  const ROLE_ORDER = ["主菜", "副菜1", "副菜2"];
+  const MEAL_TYPE_ORDER = ["breakfast", "lunch", "dinner"];
+  const grouped: Record<string, Record<string, MealSuggestion[]>> = {};
   if (suggestions) {
     for (const s of suggestions) {
-      if (!grouped[s.date]) grouped[s.date] = [];
-      grouped[s.date].push(s);
+      if (!grouped[s.date]) grouped[s.date] = {};
+      if (!grouped[s.date][s.meal_type]) grouped[s.date][s.meal_type] = [];
+      grouped[s.date][s.meal_type].push(s);
     }
     for (const d of Object.keys(grouped)) {
-      grouped[d].sort((a, b) =>
-        ["breakfast", "lunch", "dinner"].indexOf(a.meal_type) -
-        ["breakfast", "lunch", "dinner"].indexOf(b.meal_type)
-      );
+      for (const mt of Object.keys(grouped[d])) {
+        grouped[d][mt].sort(
+          (a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role)
+        );
+      }
     }
   }
   const sortedDates = Object.keys(grouped).sort();
+  // 全選択ボタン用のスロットキーセット
+  const allSlotKeys = suggestions
+    ? [...new Set(suggestions.map((s) => `${s.date}|${s.meal_type}`))]
+    : [];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-end">
@@ -228,7 +236,7 @@ export default function AISuggestModal({ todayStr, onClose, onApplied }: Props) 
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">提案結果</p>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setSelected(new Set(suggestions.map((s) => `${s.date}|${s.meal_type}`)))}
+                    onClick={() => setSelected(new Set(allSlotKeys))}
                     className="text-xs text-orange-500 font-medium"
                   >
                     全選択
@@ -250,18 +258,19 @@ export default function AISuggestModal({ todayStr, onClose, onApplied }: Props) 
                       <span className="text-xs font-bold text-gray-600">{formatDisplayDate(date)}</span>
                     </div>
                     <div className="divide-y divide-gray-100">
-                      {grouped[date].map((s) => {
-                        const key = `${s.date}|${s.meal_type}`;
+                      {MEAL_TYPE_ORDER.filter((mt) => grouped[date]?.[mt]).map((mt) => {
+                        const key = `${date}|${mt}`;
                         const isSelected = selected.has(key);
+                        const dishes = grouped[date][mt];
                         return (
                           <button
                             key={key}
                             onClick={() => toggleSelect(key)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                            className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors ${
                               isSelected ? "bg-orange-50" : "bg-white opacity-50"
                             }`}
                           >
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                            <div className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
                               isSelected ? "bg-orange-500 border-orange-500" : "border-gray-300"
                             }`}>
                               {isSelected && (
@@ -270,8 +279,21 @@ export default function AISuggestModal({ todayStr, onClose, onApplied }: Props) 
                                 </svg>
                               )}
                             </div>
-                            <span className="text-xs font-bold text-gray-500 w-4">{MEAL_LABEL[s.meal_type]}</span>
-                            <span className="text-sm text-gray-800 font-medium flex-1 line-clamp-2">{s.recipe_title}</span>
+                            <span className="text-xs font-bold text-gray-500 w-4 mt-1">{MEAL_LABEL[mt]}</span>
+                            <div className="flex-1 space-y-1">
+                              {dishes.map((s) => (
+                                <div key={s.recipe_id + s.role} className="flex items-center gap-1.5">
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                                    s.role === "主菜"
+                                      ? "bg-orange-100 text-orange-600"
+                                      : "bg-green-100 text-green-600"
+                                  }`}>
+                                    {s.role}
+                                  </span>
+                                  <span className="text-sm text-gray-800 font-medium line-clamp-1">{s.recipe_title}</span>
+                                </div>
+                              ))}
+                            </div>
                           </button>
                         );
                       })}
@@ -296,7 +318,7 @@ export default function AISuggestModal({ todayStr, onClose, onApplied }: Props) 
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>選択した献立を追加する（{selected.size}件）</span>
+                    <span>選択した献立を追加する（{selected.size}食）</span>
                   </>
                 )}
               </button>

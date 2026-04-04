@@ -6,7 +6,8 @@ import { revalidatePath } from "next/cache";
 export async function addMealPlan(
   plannedDate: string,
   mealType: "breakfast" | "lunch" | "dinner",
-  recipeId: string
+  recipeId: string,
+  role: string = "主菜"
 ) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -14,8 +15,8 @@ export async function addMealPlan(
 
   const { data, error } = await supabase
     .from("meal_plans")
-    .insert({ user_id: user.id, planned_date: plannedDate, meal_type: mealType, recipe_id: recipeId })
-    .select(`id, planned_date, meal_type, note, recipes (id, title, image_url, cooking_time_minutes)`)
+    .insert({ user_id: user.id, planned_date: plannedDate, meal_type: mealType, recipe_id: recipeId, role })
+    .select(`id, planned_date, meal_type, note, role, recipes (id, title, image_url, cooking_time_minutes)`)
     .single();
 
   if (error) return { error: error.message };
@@ -144,6 +145,7 @@ export type MealSuggestion = {
   meal_type: "breakfast" | "lunch" | "dinner";
   recipe_id: string;
   recipe_title: string;
+  role: string;          // "主菜" | "副菜1" | "副菜2"
 };
 
 export async function suggestMealPlan(
@@ -187,6 +189,10 @@ export async function suggestMealPlan(
   };
   const allMealTypes = ["breakfast", "lunch", "dinner"] as const;
 
+  // 食事タイプ別の品数仕様（朝食は1品、昼・夜は主菜+副菜2品）
+  const mealDishSpec = (mealType: string) =>
+    mealType === "breakfast" ? "1品（主菜のみ）" : "主菜1品＋副菜2品（計3品）";
+
   let slotsDescription = "";
   if (scope === "week") {
     const days = Array.from({ length: 7 }, (_, i) => {
@@ -195,13 +201,19 @@ export async function suggestMealPlan(
       return d.toISOString().split("T")[0];
     });
     slotsDescription = days
-      .map((d) => `${d}（朝食・昼食・夕食）`)
+      .map((d) =>
+        ["breakfast", "lunch", "dinner"]
+          .map((mt) => `${d} ${mealTypeLabels[mt]}：${mealDishSpec(mt)}`)
+          .join("\n")
+      )
       .join("\n");
   } else if (scope === "day") {
-    slotsDescription = `${targetDate}（朝食・昼食・夕食）`;
+    slotsDescription = ["breakfast", "lunch", "dinner"]
+      .map((mt) => `${targetDate} ${mealTypeLabels[mt]}：${mealDishSpec(mt)}`)
+      .join("\n");
   } else {
-    const mtLabel = mealTypeLabels[targetMealType ?? "dinner"];
-    slotsDescription = `${targetDate}（${mtLabel}）`;
+    const mt = targetMealType ?? "dinner";
+    slotsDescription = `${targetDate} ${mealTypeLabels[mt]}：${mealDishSpec(mt)}`;
   }
 
   // 直近献立を整形
@@ -226,19 +238,21 @@ ${recipeListStr}
 ## 直近の献立（できるだけ重複を避けてください）
 ${recentStr}
 
-## 提案してほしい枠
+## 提案してほしい枠と品数
 ${slotsDescription}
 
 ## 条件
 - 必ず上記「登録済みレシピ」のid/titleを使用してください
-- 主食・主菜・副菜など栄養バランスを意識して組み合わせてください
+- 昼食・夕食は「主菜1品（カテゴリ：主菜）＋副菜2品（カテゴリ：副菜）」の計3品を提案してください
+- 朝食は主菜1品のみ提案してください
+- 主菜にはカテゴリが「主菜」のレシピを優先し、副菜にはカテゴリが「副菜」のレシピを優先してください
+- 主菜と副菜の組み合わせで栄養バランスが取れるよう意識してください
 - 直近の献立と同じレシピが続かないようにしてください
-- 1つの枠に1つのレシピを割り当ててください
 
 以下のJSON形式のみで返してください（説明文は不要）:
 {
   "suggestions": [
-    {"date": "YYYY-MM-DD", "meal_type": "breakfast|lunch|dinner", "recipe_id": "...", "recipe_title": "..."}
+    {"date": "YYYY-MM-DD", "meal_type": "breakfast|lunch|dinner", "role": "主菜|副菜1|副菜2", "recipe_id": "...", "recipe_title": "..."}
   ]
 }`;
 
@@ -297,11 +311,15 @@ ${slotsDescription}
     return { error: "AIの返答をパースできませんでした" };
   }
 
-  // recipe_id が実在するか検証
+  // recipe_id が実在するか検証、roleのデフォルト補完
   const validIds = new Set(recipes.map((r) => r.id));
-  const validated = (parsed.suggestions || []).filter((s) =>
-    validIds.has(s.recipe_id)
-  );
+  const VALID_ROLES = ["主菜", "副菜1", "副菜2"];
+  const validated = (parsed.suggestions || [])
+    .filter((s) => validIds.has(s.recipe_id))
+    .map((s) => ({
+      ...s,
+      role: VALID_ROLES.includes(s.role) ? s.role : "主菜",
+    }));
 
   return { data: validated };
 }

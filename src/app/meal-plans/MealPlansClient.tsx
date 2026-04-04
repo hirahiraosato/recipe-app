@@ -19,6 +19,7 @@ type MealPlan = {
   planned_date: string;
   meal_type: "breakfast" | "lunch" | "dinner";
   note: string | null;
+  role: string | null;
   recipes: Recipe | null;
 };
 
@@ -299,7 +300,14 @@ export default function MealPlansClient({
                                     onClick={() => router.push(`/recipes/${meal.recipes?.id}`)}
                                     className="text-left w-full active:opacity-70 transition-opacity"
                                   >
-                                    <p className="text-sm font-medium text-gray-800 line-clamp-1">{meal.recipes?.title}</p>
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                      {meal.role && meal.role !== "主菜" && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-600 flex-shrink-0">
+                                          {meal.role}
+                                        </span>
+                                      )}
+                                      <p className="text-sm font-medium text-gray-800 line-clamp-1">{meal.recipes?.title}</p>
+                                    </div>
                                     {meal.recipes?.cooking_time_minutes && (
                                       <p className="text-xs text-gray-400">⏱ {meal.recipes.cooking_time_minutes}分</p>
                                     )}

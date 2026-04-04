@@ -25,6 +25,7 @@ export default async function MealPlansPage() {
       planned_date,
       meal_type,
       note,
+      role,
       recipes (id, title, image_url, cooking_time_minutes)
     `)
     .gte("planned_date", todayStr)
