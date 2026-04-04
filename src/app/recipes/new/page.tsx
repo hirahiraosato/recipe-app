@@ -10,6 +10,7 @@ import RecipeImagePicker from "@/components/RecipeImagePicker";
 import { uploadRecipeImage } from "@/lib/imageUpload";
 
 type ParsedIngredient = {
+  group_label: string;  // "A", "B", "下味" など（省略可）
   name: string;
   amount: string;   // 表示・編集用の文字列（"1/2", "2/3", "100" など）
   unit: string;
@@ -115,8 +116,9 @@ export default function NewRecipePage() {
       if (!data.tags) data.tags = [];
       if (!data.image_url) data.image_url = null;
       // 材料の amount を数値→分数文字列に変換
-      data.ingredients = (data.ingredients || []).map((ing: { name: string; amount: number | null; unit: string; category: string; order_index: number }) => ({
+      data.ingredients = (data.ingredients || []).map((ing: { group_label?: string; name: string; amount: number | null; unit: string; category: string; order_index: number }) => ({
         ...ing,
+        group_label: ing.group_label ?? "",
         amount: ing.amount !== null && ing.amount !== undefined ? formatAmount(ing.amount) : "",
       }));
       setAiSuggestedTags(data.tags.length > 0 ? [...data.tags] : []);
@@ -175,6 +177,7 @@ export default function NewRecipePage() {
     if (parsed.ingredients?.length > 0) {
       const ingredients = parsed.ingredients.map((ing, i) => ({
         recipe_id: recipe.id,
+        group_label: ing.group_label.trim() || null,
         name: ing.name,
         amount: parseFraction(ing.amount),
         unit: ing.unit || "",
@@ -318,6 +321,17 @@ export default function NewRecipePage() {
               {parsed.ingredients.map((ing, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <input
+                    value={ing.group_label}
+                    onChange={(e) => {
+                      const newIngs = [...parsed.ingredients];
+                      newIngs[i] = { ...newIngs[i], group_label: e.target.value };
+                      setParsed({ ...parsed, ingredients: newIngs });
+                    }}
+                    placeholder="A"
+                    maxLength={4}
+                    className="w-10 text-center text-xs border border-gray-200 rounded-lg px-1 py-1 focus:outline-none focus:border-orange-400 text-orange-500 font-bold"
+                  />
+                  <input
                     value={ing.name}
                     onChange={(e) => {
                       const newIngs = [...parsed.ingredients];
@@ -365,7 +379,7 @@ export default function NewRecipePage() {
             <button
               type="button"
               onClick={() => {
-                const newIng = { name: "", amount: "", unit: "", category: "その他", order_index: parsed.ingredients.length };
+                const newIng = { group_label: "", name: "", amount: "", unit: "", category: "その他", order_index: parsed.ingredients.length };
                 setParsed({ ...parsed, ingredients: [...parsed.ingredients, newIng] });
               }}
               className="mt-3 w-full py-2 border border-dashed border-orange-300 rounded-lg text-orange-500 text-sm font-medium hover:bg-orange-50 transition-colors"

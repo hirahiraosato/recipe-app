@@ -47,11 +47,12 @@ CREATE POLICY "recipes_owner" ON recipes
 CREATE TABLE IF NOT EXISTS ingredients (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   recipe_id   UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  group_label TEXT,   -- "A", "B", "下味" など（省略可）
   name        TEXT NOT NULL,
-  quantity    NUMERIC,
+  amount      NUMERIC,
   unit        TEXT,
-  category    TEXT,   -- 野菜/肉・魚/調味料/etc
-  sort_order  INT NOT NULL DEFAULT 0
+  category    TEXT,   -- 野菜/肉類/魚介類/調味料/その他
+  order_index INT NOT NULL DEFAULT 0
 );
 
 ALTER TABLE ingredients ENABLE ROW LEVEL SECURITY;
