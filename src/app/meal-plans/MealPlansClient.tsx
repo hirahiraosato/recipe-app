@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { addMealPlan, deleteMealPlan, addIngredientsToShopping } from "./actions";
 import AISuggestModal from "./AISuggestModal";
+import { RECIPE_CATEGORIES } from "@/lib/recipeCategories";
 
 type Recipe = {
   id: string;
@@ -57,6 +58,7 @@ export default function MealPlansClient({
   const [mealPlans, setMealPlans] = useState<MealPlan[]>(initialMealPlans);
   const [pickerTarget, setPickerTarget] = useState<{ date: string; mealType: "breakfast" | "lunch" | "dinner" } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [pickerCategory, setPickerCategory] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   // 買い物リスト追加中のキー（日・食事・レシピ単位で識別）
   const [addingShoppingKey, setAddingShoppingKey] = useState<string | null>(null);
@@ -151,7 +153,8 @@ export default function MealPlansClient({
   const filteredRecipes = recipes.filter(
     (r) =>
       !selectedIds.includes(r.id) &&
-      r.title.toLowerCase().includes(searchQuery.toLowerCase())
+      r.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      (pickerCategory === null || r.category === pickerCategory)
   );
 
   return (
@@ -334,7 +337,7 @@ export default function MealPlansClient({
 
                             {/* 追加ボタン */}
                             <button
-                              onClick={() => setPickerTarget({ date: dateStr, mealType: key })}
+                              onClick={() => { setPickerTarget({ date: dateStr, mealType: key }); setSearchQuery(""); setPickerCategory(null); }}
                               className="flex items-center gap-2 active:opacity-60 transition-opacity"
                             >
                               {meals.length === 0 ? (
@@ -404,7 +407,7 @@ export default function MealPlansClient({
                 </p>
               </div>
               <button
-                onClick={() => { setPickerTarget(null); setSearchQuery(""); }}
+                onClick={() => { setPickerTarget(null); setSearchQuery(""); setPickerCategory(null); }}
                 className="text-gray-400 p-1"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -413,7 +416,7 @@ export default function MealPlansClient({
               </button>
             </div>
 
-            <div className="px-4 py-3 flex-shrink-0">
+            <div className="px-4 py-3 flex-shrink-0 space-y-2">
               <div className="relative">
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -426,6 +429,32 @@ export default function MealPlansClient({
                   className="w-full pl-9 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
                   autoFocus
                 />
+              </div>
+              {/* カテゴリフィルター */}
+              <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+                <button
+                  onClick={() => setPickerCategory(null)}
+                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs border transition-colors ${
+                    pickerCategory === null
+                      ? "bg-orange-500 text-white border-orange-500"
+                      : "bg-white text-gray-500 border-gray-200"
+                  }`}
+                >
+                  すべて
+                </button>
+                {RECIPE_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setPickerCategory(pickerCategory === cat ? null : cat)}
+                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs border transition-colors ${
+                      pickerCategory === cat
+                        ? "bg-orange-500 text-white border-orange-500"
+                        : "bg-white text-gray-500 border-gray-200"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
               </div>
             </div>
 
