@@ -14,6 +14,7 @@ type Recipe = {
   image_url: string | null;
   servings_base: number;
   category: string | null;
+  cuisine: string | null;
   cooking_time_minutes: number | null;
   notes: string | null;
   tags: string[];
@@ -81,6 +82,7 @@ export default function RecipeDetailClient({
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
   const [showMealPlanModal, setShowMealPlanModal] = useState(false);
   const [isFavorite, setIsFavorite] = useState(recipe.is_favorite);
 
@@ -113,6 +115,62 @@ export default function RecipeDetailClient({
   if (uncategorized.length > 0) {
     grouped["その他"] = [...(grouped["その他"] || []), ...uncategorized];
   }
+
+  const handleDuplicate = async () => {
+    setIsDuplicating(true);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setIsDuplicating(false); return; }
+
+    // レシピ本体をコピー
+    const { data: newRecipe, error: recipeError } = await supabase
+      .from("recipes")
+      .insert({
+        user_id: user.id,
+        title: recipe.title + " のコピー",
+        image_url: recipe.image_url,
+        source_url: recipe.source_url,
+        servings_base: recipe.servings_base,
+        cooking_time_minutes: recipe.cooking_time_minutes,
+        category: recipe.category,
+        cuisine: recipe.cuisine,
+        notes: recipe.notes,
+        tags: recipe.tags,
+        is_favorite: false,
+      })
+      .select()
+      .single();
+
+    if (recipeError || !newRecipe) { setIsDuplicating(false); return; }
+
+    // 食材をコピー
+    if (ingredients.length > 0) {
+      await supabase.from("ingredients").insert(
+        ingredients.map((ing) => ({
+          recipe_id: newRecipe.id,
+          group_label: ing.group_label,
+          name: ing.name,
+          amount: ing.amount,
+          unit: ing.unit,
+          category: ing.category,
+          order_index: ing.order_index,
+        }))
+      );
+    }
+
+    // 手順をコピー
+    if (steps.length > 0) {
+      await supabase.from("recipe_steps").insert(
+        steps.map((s) => ({
+          recipe_id: newRecipe.id,
+          step_number: s.step_number,
+          step_text: s.step_text,
+        }))
+      );
+    }
+
+    router.push(`/recipes/${newRecipe.id}/edit`);
+  };
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -171,6 +229,22 @@ export default function RecipeDetailClient({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
+          </button>
+          {/* 複製ボタン */}
+          <button
+            onClick={handleDuplicate}
+            disabled={isDuplicating}
+            className="text-gray-400 p-1 disabled:opacity-40"
+            title="レシピを複製"
+          >
+            {isDuplicating ? (
+              <div className="w-5 h-5 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            )}
           </button>
           <button
             onClick={() => setShowDeleteConfirm(true)}
