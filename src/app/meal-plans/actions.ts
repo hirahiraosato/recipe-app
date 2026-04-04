@@ -242,12 +242,18 @@ ${slotsDescription}
   ]
 }`;
 
-  // 429リトライ付きfetch（最大3回、2秒間隔）
-  const res = await (async () => {
-    for (let i = 0; i < 3; i++) {
-      if (i > 0) await new Promise((r) => setTimeout(r, 2000 * i));
+  // モデル候補（429時に順に切り替え）
+  const models = [
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-flash",
+    "gemini-2.0-flash",
+  ];
+
+  const callGemini = async (model: string) => {
+    for (let i = 0; i < 2; i++) {
+      if (i > 0) await new Promise((r) => setTimeout(r, 3000));
       const r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -257,15 +263,21 @@ ${slotsDescription}
           }),
         }
       );
-      if (r.status !== 429 || i === 2) return r;
+      if (r.status !== 429 || i === 1) return r;
     }
     throw new Error("unreachable");
-  })();
+  };
 
-  if (res.status === 429) {
+  let res: Response | null = null;
+  for (const model of models) {
+    res = await callGemini(model);
+    if (res.status !== 429) break;
+    console.log(`[AI suggest] ${model} → 429、次のモデルを試行`);
+  }
+
+  if (!res || res.status === 429) {
     return {
-      error:
-        "AI APIの利用上限に達しました。少し時間をおいてから再試行してください（目安：1分程度）。",
+      error: "AI APIの利用上限に達しました。しばらく時間をおいてから再試行してください。",
     };
   }
 
