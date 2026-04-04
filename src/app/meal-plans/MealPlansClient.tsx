@@ -59,6 +59,7 @@ export default function MealPlansClient({
   const [pickerTarget, setPickerTarget] = useState<{ date: string; mealType: "breakfast" | "lunch" | "dinner" } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
+  const [pickerSelected, setPickerSelected] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   // 買い物リスト追加中のキー（日・食事・レシピ単位で識別）
   const [addingShoppingKey, setAddingShoppingKey] = useState<string | null>(null);
@@ -111,16 +112,26 @@ export default function MealPlansClient({
   const getDayMeals = (dateStr: string) =>
     mealPlans.filter((mp) => mp.planned_date === dateStr);
 
-  const handleSelectRecipe = async (recipeId: string) => {
-    if (!pickerTarget || saving) return;
+  const handleTogglePickerRecipe = (recipeId: string) => {
+    setPickerSelected((prev) =>
+      prev.includes(recipeId) ? prev.filter((id) => id !== recipeId) : [...prev, recipeId]
+    );
+  };
+
+  const handleConfirmAdd = async () => {
+    if (!pickerTarget || saving || pickerSelected.length === 0) return;
     setSaving(true);
-    const result = await addMealPlan(pickerTarget.date, pickerTarget.mealType, recipeId);
-    if (result.data) {
-      setMealPlans((prev) => [...prev, result.data]);
+    for (const recipeId of pickerSelected) {
+      const result = await addMealPlan(pickerTarget.date, pickerTarget.mealType, recipeId);
+      if (result.data) {
+        setMealPlans((prev) => [...prev, result.data]);
+      }
     }
     setSaving(false);
     setPickerTarget(null);
     setSearchQuery("");
+    setPickerSelected([]);
+    setPickerCategory(null);
   };
 
   const handleClearMeal = async (meal: MealPlan) => {
@@ -337,7 +348,7 @@ export default function MealPlansClient({
 
                             {/* 追加ボタン */}
                             <button
-                              onClick={() => { setPickerTarget({ date: dateStr, mealType: key }); setSearchQuery(""); setPickerCategory(null); }}
+                              onClick={() => { setPickerTarget({ date: dateStr, mealType: key }); setSearchQuery(""); setPickerCategory(null); setPickerSelected([]); }}
                               className="flex items-center gap-2 active:opacity-60 transition-opacity"
                             >
                               {meals.length === 0 ? (
@@ -407,7 +418,7 @@ export default function MealPlansClient({
                 </p>
               </div>
               <button
-                onClick={() => { setPickerTarget(null); setSearchQuery(""); setPickerCategory(null); }}
+                onClick={() => { setPickerTarget(null); setSearchQuery(""); setPickerCategory(null); setPickerSelected([]); }}
                 className="text-gray-400 p-1"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -458,7 +469,7 @@ export default function MealPlansClient({
               </div>
             </div>
 
-            <div className="overflow-y-auto flex-1 px-4 pb-8">
+            <div className="overflow-y-auto flex-1 px-4 pb-4">
               {filteredRecipes.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-gray-300">
                   <span className="text-5xl mb-3">🍽️</span>
@@ -470,43 +481,61 @@ export default function MealPlansClient({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {filteredRecipes.map((recipe) => (
-                    <button
-                      key={recipe.id}
-                      onClick={() => handleSelectRecipe(recipe.id)}
-                      disabled={saving}
-                      className="w-full flex items-center gap-3 p-3 rounded-2xl bg-gray-50 active:bg-orange-50 transition-colors text-left disabled:opacity-50"
-                    >
-                      <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-orange-50">
-                        {recipe.image_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={recipe.image_url} alt={recipe.title} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 line-clamp-2">{recipe.title}</p>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          {recipe.cooking_time_minutes && (
-                            <span className="text-xs text-gray-400">⏱ {recipe.cooking_time_minutes}分</span>
-                          )}
-                          {recipe.category && (
-                            <span className="text-xs text-orange-400 bg-orange-50 px-2 py-0.5 rounded-full">{recipe.category}</span>
+                  {filteredRecipes.map((recipe) => {
+                    const isChecked = pickerSelected.includes(recipe.id);
+                    return (
+                      <button
+                        key={recipe.id}
+                        onClick={() => handleTogglePickerRecipe(recipe.id)}
+                        disabled={saving}
+                        className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-colors text-left disabled:opacity-50 ${
+                          isChecked ? "bg-orange-50 border border-orange-200" : "bg-gray-50"
+                        }`}
+                      >
+                        <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-orange-50">
+                          {recipe.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={recipe.image_url} alt={recipe.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
                           )}
                         </div>
-                      </div>
-                      {saving ? (
-                        <div className="w-5 h-5 border-2 border-orange-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                      ) : (
-                        <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      )}
-                    </button>
-                  ))}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 line-clamp-2">{recipe.title}</p>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            {recipe.cooking_time_minutes && (
+                              <span className="text-xs text-gray-400">⏱ {recipe.cooking_time_minutes}分</span>
+                            )}
+                            {recipe.category && (
+                              <span className="text-xs text-orange-400 bg-orange-50 px-2 py-0.5 rounded-full">{recipe.category}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-colors ${
+                          isChecked ? "bg-orange-500 border-orange-500" : "border-gray-300"
+                        }`}>
+                          {isChecked && (
+                            <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
+            </div>
+
+            {/* 追加ボタン */}
+            <div className="px-4 pb-6 pt-2 flex-shrink-0 border-t border-gray-100">
+              <button
+                onClick={handleConfirmAdd}
+                disabled={pickerSelected.length === 0 || saving}
+                className="w-full py-3 rounded-2xl text-sm font-bold transition-colors bg-orange-500 text-white disabled:bg-gray-200 disabled:text-gray-400"
+              >
+                {saving ? "追加中..." : pickerSelected.length === 0 ? "レシピを選んでください" : `${pickerSelected.length}品を追加する`}
+              </button>
             </div>
           </div>
         </div>
