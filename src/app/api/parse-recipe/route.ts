@@ -162,6 +162,7 @@ function extractFromJsonLd(html: string) {
         servings_base: servings,
         cooking_time_minutes: cookingTime,
         category: recipe.recipeCategory || null,
+        cuisine: guessCuisine(allText),
         notes: recipe.description?.slice(0, 200) || null,
         tags: guessTags(allText),
         ingredients,
@@ -244,6 +245,15 @@ function guessTags(text: string): string[] {
   if (/オーブン/.test(t)) tags.push("oven");
   if (/加熱不要|火を使わない/.test(t)) tags.push("no_heat");
   return tags;
+}
+
+function guessCuisine(text: string): string | null {
+  const t = text;
+  if (/タイ|フォー|ナンプラー|パクチー|ガパオ|グリーンカレー|レッドカレー|トムヤム|インド|サモサ|ナン|チャイ|タンドール|ビリヤニ|メキシコ|タコス|サルサ|ブリトー|韓国|キムチ|チゲ|プルコギ|ビビンバ|チャプチェ|サムゲタン|ベトナム|バインミー|エスニック|スパイス/.test(t)) return "エスニック";
+  if (/チャーハン|餃子|麻婆|酢豚|春巻|八宝菜|エビチリ|回鍋肉|青椒肉絲|中華|担担麺|ラーメン|中国|豆板醤|テンメンジャン|オイスターソース|紹興酒/.test(t)) return "中華";
+  if (/ハンバーグ|グラタン|シチュー|ポトフ|ロールキャベツ|オムライス|ドリア|ピザ|パスタ|カルボナーラ|ペペロンチーノ|リゾット|ラザニア|アヒージョ|ミネストローネ|ポークソテー|チキンソテー|バターチキン|クリーム煮|洋食|デミグラス|コンソメ|チーズフォンデュ|ラタトゥイユ|キッシュ|ガレット/.test(t)) return "洋食";
+  if (/味噌汁|みそ汁|出汁|だし|煮物|炒め物|天ぷら|唐揚げ|から揚げ|肉じゃが|筑前煮|きんぴら|ひじき|おひたし|茶碗蒸し|親子丼|かつ丼|牛丼|どんぶり|和食|おでん|すき焼き|しゃぶしゃぶ|照り焼き|塩焼き|味噌漬け|西京漬け|混ぜご飯|炊き込みご飯|お茶漬け|お浸し/.test(t)) return "和食";
+  return null;
 }
 
 function guessCategory(name: string): string {
@@ -357,6 +367,7 @@ async function parseWithGemini(content: string): Promise<{ data?: object; error?
   "servings_base": 人数の数値（例: 2）,
   "cooking_time_minutes": 調理時間の数値または null,
   "category": "次の選択肢から最も近いものを選択（一致しなければ null）: 主菜（肉）/主菜（魚）/主菜（卵・豆腐）/副菜/汁物・スープ/ご飯・丼/麺・パスタ/パン・粉もの/サラダ/お菓子・デザート/その他",
+  "cuisine": "次の選択肢から最も近いものを選択（一致しなければ null）: 和食/洋食/中華/エスニック/その他",
   "notes": "備考または null",
   "tags": ["該当するタグIDのみ配列で。選択肢: freezable(冷凍保存OK), microwave(レンジ使用), rice_cooker(炊飯器使用), baby(乳児とりわけ可), make_ahead(作り置き), quick(時短), oven(オーブン使用), no_heat(加熱不要)"],
   "ingredients": [
@@ -407,6 +418,7 @@ export async function POST(request: NextRequest) {
   "servings_base": 人数の数値（例: 2）,
   "cooking_time_minutes": 調理時間の数値または null,
   "category": "次の選択肢から最も近いものを選択（一致しなければ null）: 主菜（肉）/主菜（魚）/主菜（卵・豆腐）/副菜/汁物・スープ/ご飯・丼/麺・パスタ/パン・粉もの/サラダ/お菓子・デザート/その他",
+  "cuisine": "次の選択肢から最も近いものを選択（一致しなければ null）: 和食/洋食/中華/エスニック/その他",
   "notes": "備考または null",
   "tags": ["該当するタグIDのみ配列で。選択肢: freezable(冷凍保存OK), microwave(レンジ使用), rice_cooker(炊飯器使用), baby(乳児とりわけ可), make_ahead(作り置き), quick(時短), oven(オーブン使用), no_heat(加熱不要)"],
   "ingredients": [
