@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { RECIPE_TAGS } from "@/lib/recipeTags";
 import { parseFraction, formatAmount } from "@/lib/fractionUtils";
 import { RECIPE_CATEGORIES } from "@/lib/recipeCategories";
+import { RECIPE_CUISINES } from "@/lib/recipeCuisines";
 import { INGREDIENT_CATEGORIES } from "@/lib/ingredientCategories";
 import RecipeImagePicker from "@/components/RecipeImagePicker";
 import { uploadRecipeImage } from "@/lib/imageUpload";
@@ -30,6 +31,7 @@ type ParsedRecipe = {
   servings_base: number;
   cooking_time_minutes: number | null;
   category: string | null;
+  cuisine: string | null;
   notes: string | null;
   ingredients: ParsedIngredient[];
   steps: ParsedStep[];
@@ -152,6 +154,7 @@ export default function NewRecipePage() {
         servings_base: parsed.servings_base || 2,
         cooking_time_minutes: parsed.cooking_time_minutes,
         category: parsed.category,
+        cuisine: parsed.cuisine || null,
         notes: parsed.notes,
         tags: parsed.tags || [],
       })
@@ -304,6 +307,19 @@ export default function NewRecipePage() {
                 >
                   <option value="">未選択</option>
                   {RECIPE_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-gray-400 mb-1">ジャンル</p>
+                <select
+                  value={parsed.cuisine || ""}
+                  onChange={(e) => setParsed({ ...parsed, cuisine: e.target.value || null })}
+                  className="w-full text-center text-sm font-semibold text-gray-700 border border-gray-200 rounded-lg py-1 focus:outline-none focus:border-orange-400 bg-white"
+                >
+                  <option value="">未選択</option>
+                  {RECIPE_CUISINES.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>

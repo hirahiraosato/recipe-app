@@ -35,7 +35,7 @@ export default async function MealPlansPage() {
   // ユーザーのレシピ一覧を取得（ピッカー用）
   const { data: recipes } = await supabase
     .from("recipes")
-    .select("id, title, image_url, cooking_time_minutes, category")
+    .select("id, title, image_url, cooking_time_minutes, category, cuisine")
     .order("created_at", { ascending: false });
 
   return (

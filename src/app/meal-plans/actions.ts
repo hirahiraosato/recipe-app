@@ -163,7 +163,7 @@ export async function suggestMealPlan(
   // 登録済みレシピ一覧を取得
   const { data: recipes, error: recipesError } = await supabase
     .from("recipes")
-    .select("id, title, category")
+    .select("id, title, category, cuisine")
     .eq("user_id", user.id)
     .order("title");
   if (recipesError || !recipes || recipes.length === 0) {
@@ -226,7 +226,7 @@ export async function suggestMealPlan(
 
   // レシピ一覧を整形
   const recipeListStr = recipes
-    .map((r) => `- id:${r.id} 「${r.title}」 カテゴリ:${r.category ?? "未分類"}`)
+    .map((r) => `- id:${r.id} 「${r.title}」 カテゴリ:${r.category ?? "未分類"} ジャンル:${r.cuisine ?? "未設定"}`)
     .join("\n");
 
   const prompt = `あなたは家族の献立を提案するアシスタントです。
@@ -251,6 +251,7 @@ ${slotsDescription}
 - 朝食は主菜（role: "主菜"）1品のみ提案してください
 - 各カテゴリに該当するレシピが少ない場合は、近いカテゴリで代替してください
 - 栄養バランスが取れるよう意識してください
+- 1週間の提案ではジャンル（和食・洋食・中華・エスニック等）が偏らないよう意識してください
 - 直近の献立と同じレシピが続かないようにしてください
 
 以下のJSON形式のみで返してください（説明文は不要）:

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { RECIPE_TAGS } from "@/lib/recipeTags";
+import { RECIPE_CUISINES } from "@/lib/recipeCuisines";
 import AddToMealPlanModal from "@/components/AddToMealPlanModal";
 import { createClient } from "@/lib/supabase/client";
 
@@ -12,6 +13,7 @@ type Recipe = {
   image_url: string | null;
   servings_base: number;
   category: string | null;
+  cuisine: string | null;
   cooking_time_minutes: number | null;
   created_at: string;
   tags: string[];
@@ -26,6 +28,7 @@ export default function RecipesClient({
   const [recipes, setRecipes] = useState(initialRecipes);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null);
   const [favoriteOnly, setFavoriteOnly] = useState(false);
   const [mealPlanTarget, setMealPlanTarget] = useState<Recipe | null>(null);
 
@@ -51,8 +54,9 @@ export default function RecipesClient({
     const matchesSearch = r.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTags =
       selectedTags.length === 0 || selectedTags.every((t) => r.tags?.includes(t));
+    const matchesCuisine = selectedCuisine === null || r.cuisine === selectedCuisine;
     const matchesFavorite = !favoriteOnly || r.is_favorite;
-    return matchesSearch && matchesTags && matchesFavorite;
+    return matchesSearch && matchesTags && matchesCuisine && matchesFavorite;
   });
 
   return (
@@ -89,8 +93,34 @@ export default function RecipesClient({
               className="w-full pl-9 pr-4 py-2 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
             />
           </div>
+          {/* ジャンルフィルター */}
+          <div className="flex gap-1.5 mt-2 overflow-x-auto pb-1 scrollbar-hide">
+            <button
+              onClick={() => setSelectedCuisine(null)}
+              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                selectedCuisine === null
+                  ? "bg-orange-500 text-white border-orange-500"
+                  : "bg-white text-gray-500 border-gray-200"
+              }`}
+            >
+              すべて
+            </button>
+            {RECIPE_CUISINES.map((c) => (
+              <button
+                key={c}
+                onClick={() => setSelectedCuisine(selectedCuisine === c ? null : c)}
+                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  selectedCuisine === c
+                    ? "bg-orange-500 text-white border-orange-500"
+                    : "bg-white text-gray-500 border-gray-200"
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
           {/* タグフィルター */}
-          <div className="flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-hide">
+          <div className="flex gap-2 mt-1.5 overflow-x-auto pb-1 scrollbar-hide">
             {/* お気に入りフィルター */}
             <button
               onClick={() => setFavoriteOnly((v) => !v)}

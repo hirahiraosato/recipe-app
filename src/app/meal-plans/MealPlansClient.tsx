@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { addMealPlan, deleteMealPlan, addIngredientsToShopping } from "./actions";
 import AISuggestModal from "./AISuggestModal";
 import { RECIPE_CATEGORIES } from "@/lib/recipeCategories";
+import { RECIPE_CUISINES } from "@/lib/recipeCuisines";
 
 type Recipe = {
   id: string;
@@ -12,6 +13,7 @@ type Recipe = {
   image_url: string | null;
   cooking_time_minutes: number | null;
   category?: string | null;
+  cuisine?: string | null;
 };
 
 type MealPlan = {
@@ -60,6 +62,7 @@ export default function MealPlansClient({
   const [pickerTarget, setPickerTarget] = useState<{ date: string; mealType: "breakfast" | "lunch" | "dinner" } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
+  const [pickerCuisine, setPickerCuisine] = useState<string | null>(null);
   const [pickerSelected, setPickerSelected] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   // 買い物リスト追加中のキー（日・食事・レシピ単位で識別）
@@ -166,7 +169,8 @@ export default function MealPlansClient({
     (r) =>
       !selectedIds.includes(r.id) &&
       r.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      (pickerCategory === null || r.category === pickerCategory)
+      (pickerCategory === null || r.category === pickerCategory) &&
+      (pickerCuisine === null || r.cuisine === pickerCuisine)
   );
 
   return (
@@ -360,7 +364,7 @@ export default function MealPlansClient({
 
                             {/* 追加ボタン */}
                             <button
-                              onClick={() => { setPickerTarget({ date: dateStr, mealType: key }); setSearchQuery(""); setPickerCategory(null); setPickerSelected([]); }}
+                              onClick={() => { setPickerTarget({ date: dateStr, mealType: key }); setSearchQuery(""); setPickerCategory(null); setPickerCuisine(null); setPickerSelected([]); }}
                               className="flex items-center gap-2 active:opacity-60 transition-opacity"
                             >
                               {meals.length === 0 ? (
@@ -430,7 +434,7 @@ export default function MealPlansClient({
                 </p>
               </div>
               <button
-                onClick={() => { setPickerTarget(null); setSearchQuery(""); setPickerCategory(null); setPickerSelected([]); }}
+                onClick={() => { setPickerTarget(null); setSearchQuery(""); setPickerCategory(null); setPickerCuisine(null); setPickerSelected([]); }}
                 className="text-gray-400 p-1"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -476,6 +480,32 @@ export default function MealPlansClient({
                     }`}
                   >
                     {cat}
+                  </button>
+                ))}
+              </div>
+              {/* ジャンルフィルター */}
+              <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+                <button
+                  onClick={() => setPickerCuisine(null)}
+                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs border transition-colors ${
+                    pickerCuisine === null
+                      ? "bg-blue-500 text-white border-blue-500"
+                      : "bg-white text-gray-500 border-gray-200"
+                  }`}
+                >
+                  全ジャンル
+                </button>
+                {RECIPE_CUISINES.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setPickerCuisine(pickerCuisine === c ? null : c)}
+                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs border transition-colors ${
+                      pickerCuisine === c
+                        ? "bg-blue-500 text-white border-blue-500"
+                        : "bg-white text-gray-500 border-gray-200"
+                    }`}
+                  >
+                    {c}
                   </button>
                 ))}
               </div>

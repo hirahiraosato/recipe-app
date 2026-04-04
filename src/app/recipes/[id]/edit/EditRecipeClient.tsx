@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { RECIPE_TAGS } from "@/lib/recipeTags";
 import { parseFraction, formatAmount } from "@/lib/fractionUtils";
 import { RECIPE_CATEGORIES } from "@/lib/recipeCategories";
+import { RECIPE_CUISINES } from "@/lib/recipeCuisines";
 import { INGREDIENT_CATEGORIES } from "@/lib/ingredientCategories";
 import RecipeImagePicker from "@/components/RecipeImagePicker";
 import { uploadRecipeImage } from "@/lib/imageUpload";
@@ -43,6 +44,7 @@ type Recipe = {
   servings_base: number;
   cooking_time_minutes: number | null;
   category: string | null;
+  cuisine: string | null;
   notes: string | null;
   source_url: string | null;
   tags: string[];
@@ -72,6 +74,7 @@ export default function EditRecipeClient({
   const [servings, setServings] = useState(recipe.servings_base);
   const [cookingTime, setCookingTime] = useState<number | null>(recipe.cooking_time_minutes);
   const [category, setCategory] = useState(recipe.category || "");
+  const [cuisine, setCuisine] = useState(recipe.cuisine || "");
   const [notes, setNotes] = useState(recipe.notes || "");
   const [tags, setTags] = useState<string[]>(recipe.tags || []);
 
@@ -139,6 +142,7 @@ export default function EditRecipeClient({
         servings_base: servings,
         cooking_time_minutes: cookingTime,
         category: category || null,
+        cuisine: cuisine || null,
         notes: notes || null,
         tags,
       })
@@ -274,6 +278,19 @@ export default function EditRecipeClient({
               >
                 <option value="">未選択</option>
                 {RECIPE_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">ジャンル</label>
+              <select
+                value={cuisine}
+                onChange={(e) => setCuisine(e.target.value)}
+                className="w-full text-center text-sm font-semibold border border-gray-200 rounded-xl py-2 focus:outline-none focus:border-orange-400 bg-white"
+              >
+                <option value="">未選択</option>
+                {RECIPE_CUISINES.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
