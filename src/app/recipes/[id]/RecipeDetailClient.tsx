@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { RECIPE_TAGS } from "@/lib/recipeTags";
+import { INGREDIENT_CATEGORIES } from "@/lib/ingredientCategories";
 import { formatAmount } from "@/lib/fractionUtils";
 import AddToMealPlanModal from "@/components/AddToMealPlanModal";
 
@@ -65,8 +66,8 @@ function getCoefficient(member: { birth_date: string | null; custom_coefficient:
   return getAgeCoefficient(member.birth_date);
 }
 
-// カテゴリの表示順
-const CATEGORY_ORDER = ["肉類", "魚介類", "野菜", "調味料", "その他"];
+// カテゴリの表示順（買い物リストのINGREDIENT_CATEGORIESと統一）
+const CATEGORY_ORDER = INGREDIENT_CATEGORIES;
 
 export default function RecipeDetailClient({
   recipe,
