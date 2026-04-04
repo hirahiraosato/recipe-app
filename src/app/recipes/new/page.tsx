@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { RECIPE_TAGS } from "@/lib/recipeTags";
 import { parseFraction, formatAmount } from "@/lib/fractionUtils";
 import { RECIPE_CATEGORIES } from "@/lib/recipeCategories";
+import { INGREDIENT_CATEGORIES } from "@/lib/ingredientCategories";
 import RecipeImagePicker from "@/components/RecipeImagePicker";
 import { uploadRecipeImage } from "@/lib/imageUpload";
 
@@ -319,60 +320,78 @@ export default function NewRecipePage() {
                 <p className="text-xs text-gray-400 text-center py-2">材料が取り込めませんでした。下の「＋ 追加」から手動で入力してください。</p>
               )}
               {parsed.ingredients.map((ing, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input
-                    value={ing.group_label}
-                    onChange={(e) => {
-                      const newIngs = [...parsed.ingredients];
-                      newIngs[i] = { ...newIngs[i], group_label: e.target.value };
-                      setParsed({ ...parsed, ingredients: newIngs });
-                    }}
-                    placeholder="A"
-                    maxLength={4}
-                    className="w-10 text-center text-xs border border-gray-200 rounded-lg px-1 py-1 focus:outline-none focus:border-orange-400 text-orange-500 font-bold"
-                  />
-                  <input
-                    value={ing.name}
-                    onChange={(e) => {
-                      const newIngs = [...parsed.ingredients];
-                      newIngs[i] = { ...newIngs[i], name: e.target.value };
-                      setParsed({ ...parsed, ingredients: newIngs });
-                    }}
-                    placeholder="材料名"
-                    className="flex-1 text-sm text-gray-700 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-orange-400"
-                  />
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={ing.amount}
-                    onChange={(e) => {
-                      const newIngs = [...parsed.ingredients];
-                      newIngs[i] = { ...newIngs[i], amount: e.target.value };
-                      setParsed({ ...parsed, ingredients: newIngs });
-                    }}
-                    placeholder="1/2"
-                    className="w-16 text-right text-sm text-gray-700 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-orange-400"
-                  />
-                  <input
-                    value={ing.unit}
-                    onChange={(e) => {
-                      const newIngs = [...parsed.ingredients];
-                      newIngs[i] = { ...newIngs[i], unit: e.target.value };
-                      setParsed({ ...parsed, ingredients: newIngs });
-                    }}
-                    placeholder="g"
-                    className="w-12 text-sm text-gray-500 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-orange-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newIngs = parsed.ingredients.filter((_, idx) => idx !== i);
-                      setParsed({ ...parsed, ingredients: newIngs });
-                    }}
-                    className="flex-shrink-0 w-6 h-6 text-gray-300 hover:text-red-400 flex items-center justify-center text-lg leading-none"
-                  >
-                    ×
-                  </button>
+                <div key={i} className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={ing.group_label}
+                      onChange={(e) => {
+                        const newIngs = [...parsed.ingredients];
+                        newIngs[i] = { ...newIngs[i], group_label: e.target.value };
+                        setParsed({ ...parsed, ingredients: newIngs });
+                      }}
+                      placeholder="A"
+                      maxLength={4}
+                      className="w-10 text-center text-xs border border-gray-200 rounded-lg px-1 py-1 focus:outline-none focus:border-orange-400 text-orange-500 font-bold"
+                    />
+                    <input
+                      value={ing.name}
+                      onChange={(e) => {
+                        const newIngs = [...parsed.ingredients];
+                        newIngs[i] = { ...newIngs[i], name: e.target.value };
+                        setParsed({ ...parsed, ingredients: newIngs });
+                      }}
+                      placeholder="材料名"
+                      className="flex-1 text-sm text-gray-700 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-orange-400"
+                    />
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={ing.amount}
+                      onChange={(e) => {
+                        const newIngs = [...parsed.ingredients];
+                        newIngs[i] = { ...newIngs[i], amount: e.target.value };
+                        setParsed({ ...parsed, ingredients: newIngs });
+                      }}
+                      placeholder="1/2"
+                      className="w-16 text-right text-sm text-gray-700 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-orange-400"
+                    />
+                    <input
+                      value={ing.unit}
+                      onChange={(e) => {
+                        const newIngs = [...parsed.ingredients];
+                        newIngs[i] = { ...newIngs[i], unit: e.target.value };
+                        setParsed({ ...parsed, ingredients: newIngs });
+                      }}
+                      placeholder="g"
+                      className="w-12 text-sm text-gray-500 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-orange-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newIngs = parsed.ingredients.filter((_, idx) => idx !== i);
+                        setParsed({ ...parsed, ingredients: newIngs });
+                      }}
+                      className="flex-shrink-0 w-6 h-6 text-gray-300 hover:text-red-400 flex items-center justify-center text-lg leading-none"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  {/* カテゴリ（AIが自動選択・修正可能） */}
+                  <div className="pl-12">
+                    <select
+                      value={ing.category || "その他"}
+                      onChange={(e) => {
+                        const newIngs = [...parsed.ingredients];
+                        newIngs[i] = { ...newIngs[i], category: e.target.value };
+                        setParsed({ ...parsed, ingredients: newIngs });
+                      }}
+                      className="text-xs text-gray-500 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-orange-400 bg-white"
+                    >
+                      {INGREDIENT_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               ))}
             </div>

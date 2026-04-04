@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { INGREDIENT_CATEGORIES } from "@/lib/ingredientCategories";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_URL =
@@ -246,10 +247,16 @@ function guessTags(text: string): string[] {
 }
 
 function guessCategory(name: string): string {
-  if (/鶏|豚|牛|ひき肉|ベーコン|ハム|ソーセージ/.test(name)) return "肉類";
-  if (/魚|鮭|えび|いか|たこ|貝|ツナ/.test(name)) return "魚介類";
-  if (/醤油|みりん|砂糖|塩|酒|味噌|酢|油|ごま|だし|こしょう|小麦粉|片栗粉|バター/.test(name)) return "調味料";
-  if (/玉ねぎ|じゃがいも|にんじん|キャベツ|トマト|豆腐|卵|チーズ|牛乳/.test(name)) return "野菜";
+  if (/鶏|豚|牛|ひき肉|ベーコン|ハム|ソーセージ|スパム|サラミ/.test(name)) return "肉類";
+  if (/魚|鮭|えび|いか|たこ|貝|ツナ|サバ|アジ|ぶり|あさり|しじみ|帆立|カニ|いくら/.test(name)) return "魚介類";
+  if (/牛乳|チーズ|バター|生クリーム|ヨーグルト|卵/.test(name)) return "乳製品・卵";
+  if (/豆腐|納豆|豆乳|厚揚げ|油揚げ|がんもどき|おから|枝豆/.test(name)) return "豆腐・大豆製品";
+  if (/缶|ホールトマト|コーン缶|ツナ缶|サバ缶|缶詰/.test(name)) return "缶詰・瓶詰";
+  if (/米|もち米|パスタ|うどん|そば|そうめん|春雨|ビーフン|乾麺|乾物|ひじき|わかめ|昆布|切り干し/.test(name)) return "乾物・米・麺";
+  if (/醤油|みりん|砂糖|塩|酒|味噌|酢|油|ごま|だし|こしょう|小麦粉|片栗粉|マヨネーズ|ケチャップ|ソース|スパイス|コンソメ|鶏ガラ|めんつゆ|ポン酢/.test(name)) return "調味料・油";
+  if (/冷凍|フローズン/.test(name)) return "冷凍食品";
+  if (/パン|食パン|ベーグル|薄力粉|強力粉|ベーキングパウダー|重曹/.test(name)) return "パン・粉類";
+  if (/玉ねぎ|じゃがいも|にんじん|キャベツ|トマト|ほうれん草|小松菜|ブロッコリー|きのこ|しいたけ|えのき|大根|れんこん|ごぼう|ズッキーニ|なす|ピーマン|パプリカ|ねぎ|にら|もやし|白菜|レタス|きゅうり|セロリ|アスパラ|かぼちゃ|さつまいも|里芋|果物|りんご|バナナ|みかん|いちご|ぶどう|桃|梨|柿/.test(name)) return "野菜・果物";
   return "その他";
 }
 
@@ -357,7 +364,7 @@ async function parseWithGemini(content: string): Promise<{ data?: object; error?
       "name": "材料名",
       "amount": 数量の数値または null,
       "unit": "単位（g/ml/個/大さじ など）",
-      "category": "肉類/魚介類/野菜/調味料/その他",
+      "category": "野菜・果物/肉類/魚介類/乳製品・卵/豆腐・大豆製品/缶詰・瓶詰/乾物・米・麺/調味料・油/冷凍食品/パン・粉類/飲料/お菓子/その他",
       "order_index": 0
     }
   ],
@@ -407,7 +414,7 @@ export async function POST(request: NextRequest) {
       "name": "材料名",
       "amount": 数量の数値または null,
       "unit": "単位（g/ml/個/大さじ など）",
-      "category": "肉類/魚介類/野菜/調味料/その他",
+      "category": "野菜・果物/肉類/魚介類/乳製品・卵/豆腐・大豆製品/缶詰・瓶詰/乾物・米・麺/調味料・油/冷凍食品/パン・粉類/飲料/お菓子/その他",
       "order_index": 0
     }
   ],
