@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { parseFraction, formatAmount } from "@/lib/fractionUtils";
 import { INGREDIENT_CATEGORIES } from "@/lib/ingredientCategories";
+
+const CATEGORY_ORDER_KEY = "shopping_category_order";
 import {
   addShoppingItem,
   deleteShoppingItem,
@@ -85,12 +87,32 @@ export default function ShoppingClient({
   initialItems: ShoppingItem[];
 }) {
   const [items, setItems] = useState(initialItems);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [copyToast, setCopyToast] = useState(false);
+  const [categoryOrder, setCategoryOrder] = useState<string[]>([...INGREDIENT_CATEGORIES]);
+  const [showSortModal, setShowSortModal] = useState(false);
+  const [draftOrder, setDraftOrder] = useState<string[]>([...INGREDIENT_CATEGORIES]);
   const [contextMenuAgg, setContextMenuAgg] = useState<AggregatedItem | null>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [copyToast, setCopyToast] = useState(false);
+
+  // localStorageからカテゴリ順を復元
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CATEGORY_ORDER_KEY);
+      if (saved) {
+        const parsed: string[] = JSON.parse(saved);
+        // 新カテゴリが追加された場合は末尾に追加
+        const merged = [
+          ...parsed.filter((c) => (INGREDIENT_CATEGORIES as readonly string[]).includes(c)),
+          ...INGREDIENT_CATEGORIES.filter((c) => !parsed.includes(c)),
+        ];
+        setCategoryOrder(merged);
+        setDraftOrder(merged);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const [newName, setNewName] = useState("");
   const [newQty, setNewQty] = useState("");
@@ -105,8 +127,13 @@ export default function ShoppingClient({
 
   const handleCopyList = async () => {
     const lines: string[] = ["【買い物リスト】"];
-    const groups = groupAggByCategory(uncheckedAgg);
-    for (const [cat, catAggs] of Object.entries(groups)) {
+    const groupsRaw = groupAggByCategory(uncheckedAgg);
+    const orderedKeys = [
+      ...categoryOrder.filter((c) => groupsRaw[c]),
+      ...Object.keys(groupsRaw).filter((c) => !categoryOrder.includes(c)),
+    ];
+    for (const cat of orderedKeys) {
+      const catAggs = groupsRaw[cat];
       lines.push(`\n▼ ${cat}`);
       for (const agg of catAggs) {
         const qty = agg.totalQuantity ? `${agg.totalQuantity}${agg.unit ?? ""}` : (agg.unit ?? "");
@@ -211,6 +238,21 @@ export default function ShoppingClient({
     }
   };
 
+  // カテゴリ並び替えモーダルの操作
+  const moveDraftCategory = (index: number, direction: -1 | 1) => {
+    const next = [...draftOrder];
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    setDraftOrder(next);
+  };
+
+  const saveCategoryOrder = () => {
+    setCategoryOrder(draftOrder);
+    localStorage.setItem(CATEGORY_ORDER_KEY, JSON.stringify(draftOrder));
+    setShowSortModal(false);
+  };
+
   const groupAggByCategory = (aggList: AggregatedItem[]) => {
     const groups: Record<string, AggregatedItem[]> = {};
     for (const agg of aggList) {
@@ -221,7 +263,15 @@ export default function ShoppingClient({
     return groups;
   };
 
-  const uncheckedGroups = groupAggByCategory(uncheckedAgg);
+  const uncheckedGroupsRaw = groupAggByCategory(uncheckedAgg);
+  // categoryOrder に従って並び替え、未定義カテゴリは末尾
+  const orderedCategoryKeys = [
+    ...categoryOrder.filter((c) => uncheckedGroupsRaw[c]),
+    ...Object.keys(uncheckedGroupsRaw).filter((c) => !categoryOrder.includes(c)),
+  ];
+  const uncheckedGroups: [string, AggregatedItem[]][] = orderedCategoryKeys.map(
+    (c) => [c, uncheckedGroupsRaw[c]]
+  );
 
   /** アイテム行 */
   const ItemRow = ({
@@ -313,15 +363,27 @@ export default function ShoppingClient({
       <header className="bg-white sticky top-0 z-40 border-b border-gray-100">
         <div className="px-4 py-3 flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-800">買い物リスト</h1>
-          <button
-            onClick={handleCopyList}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 font-medium active:bg-gray-50 transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            LINEで送る
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setDraftOrder([...categoryOrder]); setShowSortModal(true); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 font-medium active:bg-gray-50 transition-colors"
+              title="カテゴリ順を変更"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M3 12h18M3 17h18" />
+              </svg>
+              並び替え
+            </button>
+            <button
+              onClick={handleCopyList}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 font-medium active:bg-gray-50 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              LINEで送る
+            </button>
+          </div>
         </div>
       </header>
 
@@ -345,7 +407,7 @@ export default function ShoppingClient({
         </div>
 
         {/* 未チェック（カテゴリ別） */}
-        {Object.entries(uncheckedGroups).map(([category, catAggs]) => (
+        {uncheckedGroups.map(([category, catAggs]) => (
           <div key={category} className="mb-4">
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
               {category}
@@ -519,6 +581,64 @@ export default function ShoppingClient({
             >
               キャンセル
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* カテゴリ並び替えモーダル */}
+      {showSortModal && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-end"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowSortModal(false); }}
+        >
+          <div className="bg-white w-full rounded-t-3xl p-6 space-y-4 max-h-[80vh] flex flex-col">
+            <h3 className="text-base font-bold text-gray-800 text-center flex-shrink-0">
+              カテゴリの表示順
+            </h3>
+            <p className="text-xs text-gray-400 text-center -mt-2 flex-shrink-0">
+              ▲▼で並び替えて保存してください
+            </p>
+            <div className="overflow-y-auto flex-1 space-y-2">
+              {draftOrder.map((cat, idx) => (
+                <div key={cat} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                  <span className="flex-1 text-sm text-gray-700 font-medium">{cat}</span>
+                  <div className="flex flex-col gap-1">
+                    <button
+                      onClick={() => moveDraftCategory(idx, -1)}
+                      disabled={idx === 0}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-400 disabled:opacity-20 active:bg-gray-100"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => moveDraftCategory(idx, 1)}
+                      disabled={idx === draftOrder.length - 1}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-400 disabled:opacity-20 active:bg-gray-100"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3 flex-shrink-0">
+              <button
+                onClick={() => setShowSortModal(false)}
+                className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl font-semibold text-sm"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={saveCategoryOrder}
+                className="flex-1 bg-orange-500 text-white py-3 rounded-xl font-bold text-sm active:scale-95 transition-transform"
+              >
+                保存する
+              </button>
+            </div>
           </div>
         </div>
       )}

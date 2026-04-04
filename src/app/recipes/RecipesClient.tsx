@@ -29,6 +29,7 @@ export default function RecipesClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null);
+  const [cookingTimeMax, setCookingTimeMax] = useState<number | null>(null);
   const [favoriteOnly, setFavoriteOnly] = useState(false);
   const [mealPlanTarget, setMealPlanTarget] = useState<Recipe | null>(null);
 
@@ -55,8 +56,11 @@ export default function RecipesClient({
     const matchesTags =
       selectedTags.length === 0 || selectedTags.every((t) => r.tags?.includes(t));
     const matchesCuisine = selectedCuisine === null || r.cuisine === selectedCuisine;
+    const matchesCookingTime =
+      cookingTimeMax === null ||
+      (r.cooking_time_minutes !== null && r.cooking_time_minutes <= cookingTimeMax);
     const matchesFavorite = !favoriteOnly || r.is_favorite;
-    return matchesSearch && matchesTags && matchesCuisine && matchesFavorite;
+    return matchesSearch && matchesTags && matchesCuisine && matchesCookingTime && matchesFavorite;
   });
 
   return (
@@ -116,6 +120,25 @@ export default function RecipesClient({
                 }`}
               >
                 {c}
+              </button>
+            ))}
+          </div>
+          {/* 調理時間フィルター */}
+          <div className="flex gap-1.5 mt-1.5 overflow-x-auto pb-1 scrollbar-hide">
+            {([null, 15, 30, 60] as const).map((val) => (
+              <button
+                key={val ?? "all"}
+                onClick={() => setCookingTimeMax(val)}
+                className={`flex-shrink-0 flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  cookingTimeMax === val
+                    ? "bg-teal-500 text-white border-teal-500"
+                    : "bg-white text-gray-500 border-gray-200"
+                }`}
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {val === null ? "時間指定なし" : `〜${val}分`}
               </button>
             ))}
           </div>
