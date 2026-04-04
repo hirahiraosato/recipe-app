@@ -61,11 +61,4 @@ export async function deleteShoppingItems(ids: string[]) {
   if (ids.length === 0) return;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("未ログイン");
-
-  await supabase
-    .from("shopping_items")
-    .delete()
-    .in("id", ids)
-    .eq("user_id", user.id);
-}
+  if (!user) throw new Error("未ログイ

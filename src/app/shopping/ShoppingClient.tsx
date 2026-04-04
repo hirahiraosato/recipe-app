@@ -437,39 +437,4 @@ export default function ShoppingClient({
       )}
 
       {/* 一括リセット確認 */}
-      {showResetConfirm && (
-        <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-end"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowResetConfirm(false); }}
-        >
-          <div className="bg-white w-full rounded-t-3xl p-6 space-y-3">
-            <h3 className="text-base font-bold text-gray-800 text-center">リセット方法を選択</h3>
-
-            {checkedSourceCount > 0 && (
-              <button
-                onClick={handleDeleteChecked}
-                className="w-full bg-orange-50 text-orange-600 border border-orange-200 py-3.5 rounded-xl font-bold text-sm active:scale-95 transition-transform"
-              >
-                完了済み（{checkedAgg.length}品目）を削除
-              </button>
-            )}
-
-            <button
-              onClick={handleResetAll}
-              className="w-full bg-red-50 text-red-500 border border-red-200 py-3.5 rounded-xl font-bold text-sm active:scale-95 transition-transform"
-            >
-              リストを全て削除（{aggregated.length}品目）
-            </button>
-
-            <button
-              onClick={() => setShowResetConfirm(false)}
-              className="w-full bg-gray-100 text-gray-600 py-3 rounded-xl font-semibold text-sm"
-            >
-              キャンセル
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+    

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { RECIPE_TAGS } from "@/lib/recipeTags";
 import AddToMealPlanModal from "@/components/AddToMealPlanModal";
+import { createClient } from "@/lib/supabase/client";
 
 type Recipe = {
   id: string;
@@ -14,6 +15,7 @@ type Recipe = {
   cooking_time_minutes: number | null;
   created_at: string;
   tags: string[];
+  is_favorite: boolean;
 };
 
 export default function RecipesClient({
@@ -21,8 +23,10 @@ export default function RecipesClient({
 }: {
   initialRecipes: Recipe[];
 }) {
+  const [recipes, setRecipes] = useState(initialRecipes);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [favoriteOnly, setFavoriteOnly] = useState(false);
   const [mealPlanTarget, setMealPlanTarget] = useState<Recipe | null>(null);
 
   const toggleTag = (tagId: string) => {
@@ -31,11 +35,24 @@ export default function RecipesClient({
     );
   };
 
-  const filtered = initialRecipes.filter((r) => {
+  const handleToggleFavorite = async (e: React.MouseEvent, recipe: Recipe) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const newVal = !recipe.is_favorite;
+    // Optimistic update
+    setRecipes((prev) =>
+      prev.map((r) => (r.id === recipe.id ? { ...r, is_favorite: newVal } : r))
+    );
+    const supabase = createClient();
+    await supabase.from("recipes").update({ is_favorite: newVal }).eq("id", recipe.id);
+  };
+
+  const filtered = recipes.filter((r) => {
     const matchesSearch = r.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTags =
       selectedTags.length === 0 || selectedTags.every((t) => r.tags?.includes(t));
-    return matchesSearch && matchesTags;
+    const matchesFavorite = !favoriteOnly || r.is_favorite;
+    return matchesSearch && matchesTags && matchesFavorite;
   });
 
   return (
@@ -74,6 +91,17 @@ export default function RecipesClient({
           </div>
           {/* タグフィルター */}
           <div className="flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-hide">
+            {/* お気に入りフィルター */}
+            <button
+              onClick={() => setFavoriteOnly((v) => !v)}
+              className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                favoriteOnly
+                  ? "bg-red-500 text-white border-red-500"
+                  : "bg-white text-gray-500 border-gray-200"
+              }`}
+            >
+              ❤️ お気に入り
+            </button>
             {RECIPE_TAGS.map((tag) => {
               const active = selectedTags.includes(tag.id);
               return (
@@ -120,7 +148,7 @@ export default function RecipesClient({
               <div key={recipe.id} className="bg-white rounded-2xl overflow-hidden shadow-sm relative">
                 {/* カード本体 → 詳細ページへ */}
                 <Link href={`/recipes/${recipe.id}`} className="block active:opacity-80 transition-opacity">
-                  <div className="aspect-square bg-orange-50 flex items-center justify-center">
+                  <div className="aspect-square bg-orange-50 flex items-center justify-center relative">
                     {recipe.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -131,6 +159,21 @@ export default function RecipesClient({
                     ) : (
                       <span className="text-4xl">🍽️</span>
                     )}
+                    {/* ハートボタン */}
+                    <button
+                      onClick={(e) => handleToggleFavorite(e, recipe)}
+                      className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-sm active:scale-90 transition-transform"
+                    >
+                      {recipe.is_favorite ? (
+                        <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
                   <div className="p-3 pb-2">
                     <p className="text-sm font-semibold text-gray-800 line-clamp-2 leading-tight">

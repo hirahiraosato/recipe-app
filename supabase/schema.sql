@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS recipes (
   cooking_time_minutes  INT,
   category              TEXT,
   memo                  TEXT,
+  is_favorite           BOOLEAN NOT NULL DEFAULT false,
   created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
