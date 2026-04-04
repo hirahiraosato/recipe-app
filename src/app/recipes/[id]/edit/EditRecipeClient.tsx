@@ -296,61 +296,79 @@ export default function EditRecipeClient({
 
           <div className="space-y-2">
             {ingredients.map((ing, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                {/* グループラベル（省略可能） */}
-                <input
-                  value={ing.group_label}
-                  onChange={(e) => {
-                    const n = [...ingredients];
-                    n[i] = { ...n[i], group_label: e.target.value };
-                    setIngredients(n);
-                  }}
-                  placeholder="A"
-                  maxLength={4}
-                  className="w-10 text-center text-xs border border-gray-200 rounded-lg px-1 py-2 focus:outline-none focus:border-orange-400 text-orange-500 font-bold"
-                />
-                {/* 材料名（オートコンプリート付き） */}
-                <input
-                  list="ingredient-names"
-                  value={ing.name}
-                  onChange={(e) => {
-                    const n = [...ingredients];
-                    n[i] = { ...n[i], name: e.target.value };
-                    setIngredients(n);
-                  }}
-                  placeholder="材料名"
-                  className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-orange-400"
-                />
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={ing.amount}
-                  onChange={(e) => {
-                    const n = [...ingredients];
-                    n[i] = { ...n[i], amount: e.target.value };
-                    setIngredients(n);
-                  }}
-                  placeholder="1/2"
-                  className="w-16 text-right text-sm border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:border-orange-400"
-                />
-                <input
-                  value={ing.unit}
-                  onChange={(e) => {
-                    const n = [...ingredients];
-                    n[i] = { ...n[i], unit: e.target.value };
-                    setIngredients(n);
-                  }}
-                  placeholder="単位"
-                  className="w-14 text-sm border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:border-orange-400"
-                />
-                <button
-                  onClick={() => removeIngredient(i)}
-                  className="text-gray-300 hover:text-red-400 flex-shrink-0"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+              <div key={i} className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  {/* グループラベル（省略可能） */}
+                  <input
+                    value={ing.group_label}
+                    onChange={(e) => {
+                      const n = [...ingredients];
+                      n[i] = { ...n[i], group_label: e.target.value };
+                      setIngredients(n);
+                    }}
+                    placeholder="A"
+                    maxLength={4}
+                    className="w-10 text-center text-xs border border-gray-200 rounded-lg px-1 py-2 focus:outline-none focus:border-orange-400 text-orange-500 font-bold"
+                  />
+                  {/* 材料名（オートコンプリート付き） */}
+                  <input
+                    list="ingredient-names"
+                    value={ing.name}
+                    onChange={(e) => {
+                      const n = [...ingredients];
+                      n[i] = { ...n[i], name: e.target.value };
+                      setIngredients(n);
+                    }}
+                    placeholder="材料名"
+                    className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-orange-400"
+                  />
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={ing.amount}
+                    onChange={(e) => {
+                      const n = [...ingredients];
+                      n[i] = { ...n[i], amount: e.target.value };
+                      setIngredients(n);
+                    }}
+                    placeholder="1/2"
+                    className="w-16 text-right text-sm border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:border-orange-400"
+                  />
+                  <input
+                    value={ing.unit}
+                    onChange={(e) => {
+                      const n = [...ingredients];
+                      n[i] = { ...n[i], unit: e.target.value };
+                      setIngredients(n);
+                    }}
+                    placeholder="単位"
+                    className="w-14 text-sm border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:border-orange-400"
+                  />
+                  <button
+                    onClick={() => removeIngredient(i)}
+                    className="text-gray-300 hover:text-red-400 flex-shrink-0"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                {/* カテゴリ（買い物リスト分類用） */}
+                <div className="pl-12">
+                  <select
+                    value={ing.category}
+                    onChange={(e) => {
+                      const n = [...ingredients];
+                      n[i] = { ...n[i], category: e.target.value };
+                      setIngredients(n);
+                    }}
+                    className="text-xs text-gray-500 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-orange-400 bg-white"
+                  >
+                    {["野菜", "肉類", "魚介類", "調味料", "その他"].map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             ))}
           </div>
