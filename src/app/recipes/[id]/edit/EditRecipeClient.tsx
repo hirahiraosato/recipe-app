@@ -46,6 +46,7 @@ type Recipe = {
   category: string | null;
   cuisine: string | null;
   notes: string | null;
+  family_note: string | null;
   source_url: string | null;
   tags: string[];
 };
@@ -76,6 +77,7 @@ export default function EditRecipeClient({
   const [category, setCategory] = useState(recipe.category || "");
   const [cuisine, setCuisine] = useState(recipe.cuisine || "");
   const [notes, setNotes] = useState(recipe.notes || "");
+  const [familyNote, setFamilyNote] = useState(recipe.family_note || "");
   const [tags, setTags] = useState<string[]>(recipe.tags || []);
 
   const toggleTag = (id: string) =>
@@ -144,6 +146,7 @@ export default function EditRecipeClient({
         category: category || null,
         cuisine: cuisine || null,
         notes: notes || null,
+        family_note: familyNote || null,
         tags,
       })
       .eq("id", recipe.id);
@@ -471,6 +474,18 @@ export default function EditRecipeClient({
             placeholder="コツ・ポイントなど"
             rows={3}
             className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-orange-400 resize-none"
+          />
+        </div>
+
+        {/* 家族メモ */}
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
+          <h2 className="text-sm font-bold text-amber-700 mb-2">👨‍👩‍👧‍👦 家族メモ</h2>
+          <textarea
+            value={familyNote}
+            onChange={(e) => setFamilyNote(e.target.value)}
+            placeholder="例：子どもに大好評！次回は薄味で。"
+            rows={3}
+            className="w-full text-sm border border-amber-300 rounded-xl px-3 py-2 focus:outline-none focus:border-amber-400 bg-white resize-none"
           />
         </div>
 

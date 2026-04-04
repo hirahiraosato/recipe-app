@@ -328,3 +328,109 @@ ${slotsDescription}
 
   return { data: validated };
 }
+
+// ───────────────────────────────
+// 献立テンプレート
+// ───────────────────────────────
+
+type TemplateItem = {
+  day_offset: number;
+  meal_type: string;
+  recipe_id: string;
+  role: string;
+};
+
+/** 現在の週をテンプレートとして保存 */
+export async function saveMealPlanTemplate(
+  name: string,
+  items: TemplateItem[]
+) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return { error: "ログインが必要です" };
+  if (!items.length) return { error: "献立が登録されていません" };
+
+  const { data: tmpl, error: tmplErr } = await supabase
+    .from("meal_plan_templates")
+    .insert({ user_id: user.id, name })
+    .select("id")
+    .single();
+  if (tmplErr || !tmpl) return { error: tmplErr?.message ?? "保存失敗" };
+
+  const rows = items.map((it) => ({ template_id: tmpl.id, ...it }));
+  const { error: itemErr } = await supabase.from("meal_plan_template_items").insert(rows);
+  if (itemErr) return { error: itemErr.message };
+
+  return { data: tmpl.id };
+}
+
+/** テンプレート一覧を取得（アイテム付き） */
+export async function getMealPlanTemplates() {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return { error: "ログインが必要です" };
+
+  const { data, error } = await supabase
+    .from("meal_plan_templates")
+    .select(`
+      id, name, created_at,
+      meal_plan_template_items (
+        id, day_offset, meal_type, role,
+        recipes ( id, title, image_url )
+      )
+    `)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) return { error: error.message };
+  return { data: data ?? [] };
+}
+
+/** テンプレートを指定開始日に適用 */
+export async function applyMealPlanTemplate(
+  templateId: string,
+  startDate: string   // day_offset=0 がこの日
+) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return { error: "ログインが必要です" };
+
+  const { data: items, error: fetchErr } = await supabase
+    .from("meal_plan_template_items")
+    .select("day_offset, meal_type, recipe_id, role")
+    .eq("template_id", templateId);
+  if (fetchErr || !items?.length) return { error: "テンプレートが空です" };
+
+  const rows = items.map((item) => {
+    const d = new Date(startDate + "T00:00:00");
+    d.setDate(d.getDate() + item.day_offset);
+    return {
+      user_id: user.id,
+      planned_date: d.toISOString().split("T")[0],
+      meal_type: item.meal_type,
+      recipe_id: item.recipe_id,
+      role: item.role,
+    };
+  });
+
+  const { error: insertErr } = await supabase.from("meal_plans").insert(rows);
+  if (insertErr) return { error: insertErr.message };
+
+  revalidatePath("/meal-plans");
+  return { data: rows.length };
+}
+
+/** テンプレートを削除 */
+export async function deleteMealPlanTemplate(templateId: string) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return { error: "ログインが必要です" };
+
+  const { error } = await supabase
+    .from("meal_plan_templates")
+    .delete()
+    .eq("id", templateId)
+    .eq("user_id", user.id);
+  if (error) return { error: error.message };
+  return { data: true };
+}

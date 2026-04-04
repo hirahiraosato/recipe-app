@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { addMealPlan, deleteMealPlan, addIngredientsToShopping } from "./actions";
 import AISuggestModal from "./AISuggestModal";
+import TemplateModal from "./TemplateModal";
 import { RECIPE_CATEGORIES } from "@/lib/recipeCategories";
 import { RECIPE_CUISINES } from "@/lib/recipeCuisines";
 
@@ -71,6 +72,8 @@ export default function MealPlansClient({
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   // AI提案モーダル
   const [showAISuggest, setShowAISuggest] = useState(false);
+  // テンプレートモーダル
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
 
   const handleCopyMealPlan = async () => {
     const lines: string[] = ["【献立】"];
@@ -179,6 +182,14 @@ export default function MealPlansClient({
         <header className="bg-white sticky top-0 z-40 border-b border-gray-100 px-4 py-3 flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-800">献立</h1>
           <div className="flex items-center gap-2">
+            {/* テンプレートボタン */}
+            <button
+              onClick={() => setShowTemplateModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 font-medium active:bg-gray-50 transition-colors"
+            >
+              <span>📋</span>
+              テンプレート
+            </button>
             {/* AI提案ボタン */}
             <button
               onClick={() => setShowAISuggest(true)}
@@ -396,6 +407,16 @@ export default function MealPlansClient({
           })}
         </div>
       </div>
+
+      {/* テンプレートモーダル */}
+      {showTemplateModal && (
+        <TemplateModal
+          mealPlans={mealPlans}
+          todayStr={todayStr}
+          onClose={() => setShowTemplateModal(false)}
+          onApplied={() => router.refresh()}
+        />
+      )}
 
       {/* AI提案モーダル */}
       {showAISuggest && (

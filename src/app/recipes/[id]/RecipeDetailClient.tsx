@@ -18,6 +18,7 @@ type Recipe = {
   cuisine: string | null;
   cooking_time_minutes: number | null;
   notes: string | null;
+  family_note: string | null;
   tags: string[];
   is_favorite: boolean;
 };
@@ -86,6 +87,14 @@ export default function RecipeDetailClient({
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [showMealPlanModal, setShowMealPlanModal] = useState(false);
   const [isFavorite, setIsFavorite] = useState(recipe.is_favorite);
+  const [familyNote, setFamilyNote] = useState(recipe.family_note ?? "");
+  const [isEditingFamilyNote, setIsEditingFamilyNote] = useState(false);
+
+  const handleSaveFamilyNote = async () => {
+    setIsEditingFamilyNote(false);
+    const supabase = createClient();
+    await supabase.from("recipes").update({ family_note: familyNote || null }).eq("id", recipe.id);
+  };
 
   const handleToggleFavorite = async () => {
     const newVal = !isFavorite;
@@ -449,6 +458,51 @@ export default function RecipeDetailClient({
                 </p>
               </div>
             )}
+
+            {/* 家族メモ */}
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-bold text-amber-700">👨‍👩‍👧‍👦 家族メモ</h2>
+                {!isEditingFamilyNote && (
+                  <button
+                    onClick={() => setIsEditingFamilyNote(true)}
+                    className="text-xs text-amber-500 border border-amber-300 rounded-lg px-2 py-1 active:bg-amber-100"
+                  >
+                    {familyNote ? "編集" : "追加"}
+                  </button>
+                )}
+              </div>
+              {isEditingFamilyNote ? (
+                <div className="space-y-2">
+                  <textarea
+                    autoFocus
+                    value={familyNote}
+                    onChange={(e) => setFamilyNote(e.target.value)}
+                    placeholder="例：子どもに大好評！次回は薄味で。"
+                    rows={3}
+                    className="w-full text-sm border border-amber-300 rounded-xl px-3 py-2 focus:outline-none focus:border-amber-400 bg-white resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSaveFamilyNote}
+                      className="flex-1 bg-amber-500 text-white py-2 rounded-xl text-sm font-bold"
+                    >
+                      保存
+                    </button>
+                    <button
+                      onClick={() => { setIsEditingFamilyNote(false); setFamilyNote(recipe.family_note ?? ""); }}
+                      className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-xl text-sm"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className={`text-sm leading-relaxed whitespace-pre-wrap ${familyNote ? "text-amber-800" : "text-amber-300"}`}>
+                  {familyNote || "タップして家族の反応や次回の調整メモを記録できます"}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
