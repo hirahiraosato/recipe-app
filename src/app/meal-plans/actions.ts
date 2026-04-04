@@ -189,9 +189,9 @@ export async function suggestMealPlan(
   };
   const allMealTypes = ["breakfast", "lunch", "dinner"] as const;
 
-  // 食事タイプ別の品数仕様（朝食は1品、昼・夜は主菜+副菜2品）
+  // 食事タイプ別の品数仕様（朝食は1品、昼・夜は一汁三菜=汁物+主菜+副菜2品）
   const mealDishSpec = (mealType: string) =>
-    mealType === "breakfast" ? "1品（主菜のみ）" : "主菜1品＋副菜2品（計3品）";
+    mealType === "breakfast" ? "1品（主菜のみ）" : "汁物1品＋主菜1品＋副菜2品（計4品）";
 
   let slotsDescription = "";
   if (scope === "week") {
@@ -243,16 +243,20 @@ ${slotsDescription}
 
 ## 条件
 - 必ず上記「登録済みレシピ」のid/titleを使用してください
-- 昼食・夕食は「主菜1品（カテゴリ：主菜）＋副菜2品（カテゴリ：副菜）」の計3品を提案してください
-- 朝食は主菜1品のみ提案してください
-- 主菜にはカテゴリが「主菜」のレシピを優先し、副菜にはカテゴリが「副菜」のレシピを優先してください
-- 主菜と副菜の組み合わせで栄養バランスが取れるよう意識してください
+- 昼食・夕食は一汁三菜として以下4品を提案してください:
+  - 汁物（role: "汁物"）: カテゴリ「汁物・スープ」のレシピから1品
+  - 主菜（role: "主菜"）: カテゴリ「主菜（肉）」「主菜（魚）」「主菜（卵・豆腐）」「ご飯・丼」「麺・パスタ」「パン・粉もの」のいずれかから1品
+  - 副菜1（role: "副菜1"）: カテゴリ「副菜」「サラダ」のいずれかから1品
+  - 副菜2（role: "副菜2"）: カテゴリ「副菜」「サラダ」のいずれかから1品（副菜1と異なるレシピ）
+- 朝食は主菜（role: "主菜"）1品のみ提案してください
+- 各カテゴリに該当するレシピが少ない場合は、近いカテゴリで代替してください
+- 栄養バランスが取れるよう意識してください
 - 直近の献立と同じレシピが続かないようにしてください
 
 以下のJSON形式のみで返してください（説明文は不要）:
 {
   "suggestions": [
-    {"date": "YYYY-MM-DD", "meal_type": "breakfast|lunch|dinner", "role": "主菜|副菜1|副菜2", "recipe_id": "...", "recipe_title": "..."}
+    {"date": "YYYY-MM-DD", "meal_type": "breakfast|lunch|dinner", "role": "汁物|主菜|副菜1|副菜2", "recipe_id": "...", "recipe_title": "..."}
   ]
 }`;
 
@@ -313,7 +317,7 @@ ${slotsDescription}
 
   // recipe_id が実在するか検証、roleのデフォルト補完
   const validIds = new Set(recipes.map((r) => r.id));
-  const VALID_ROLES = ["主菜", "副菜1", "副菜2"];
+  const VALID_ROLES = ["汁物", "主菜", "副菜1", "副菜2"];
   const validated = (parsed.suggestions || [])
     .filter((s) => validIds.has(s.recipe_id))
     .map((s) => ({

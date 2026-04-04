@@ -302,7 +302,11 @@ export default function MealPlansClient({
                                   >
                                     <div className="flex items-center gap-1 flex-wrap">
                                       {meal.role && meal.role !== "主菜" && (
-                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-600 flex-shrink-0">
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                                          meal.role === "汁物"
+                                            ? "bg-blue-100 text-blue-600"
+                                            : "bg-green-100 text-green-600"
+                                        }`}>
                                           {meal.role}
                                         </span>
                                       )}

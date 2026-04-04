@@ -97,7 +97,7 @@ export default function AISuggestModal({ todayStr, onClose, onApplied }: Props) 
   };
 
   // 提案を日付 > 食事タイプ > role順でグループ化
-  const ROLE_ORDER = ["主菜", "副菜1", "副菜2"];
+  const ROLE_ORDER = ["汁物", "主菜", "副菜1", "副菜2"];
   const MEAL_TYPE_ORDER = ["breakfast", "lunch", "dinner"];
   const grouped: Record<string, Record<string, MealSuggestion[]>> = {};
   if (suggestions) {
@@ -284,7 +284,9 @@ export default function AISuggestModal({ todayStr, onClose, onApplied }: Props) 
                               {dishes.map((s) => (
                                 <div key={s.recipe_id + s.role} className="flex items-center gap-1.5">
                                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-                                    s.role === "主菜"
+                                    s.role === "汁物"
+                                      ? "bg-blue-100 text-blue-600"
+                                      : s.role === "主菜"
                                       ? "bg-orange-100 text-orange-600"
                                       : "bg-green-100 text-green-600"
                                   }`}>
