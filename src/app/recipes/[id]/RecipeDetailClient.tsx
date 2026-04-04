@@ -34,6 +34,7 @@ type FamilyMember = {
   id: string;
   name: string;
   birth_date: string | null;
+  custom_coefficient: number | null;
 };
 
 type Step = {
@@ -43,7 +44,7 @@ type Step = {
 };
 
 // 年齢から係数を計算
-function getCoefficient(birthDate: string | null): number {
+function getAgeCoefficient(birthDate: string | null): number {
   if (!birthDate) return 1.0;
   const today = new Date();
   const birth = new Date(birthDate);
@@ -55,6 +56,12 @@ function getCoefficient(birthDate: string | null): number {
   if (age <= 5) return 0.5;
   if (age <= 12) return 0.7;
   return 1.0;
+}
+
+// custom_coefficient優先、なければ誕生日から年齢計算
+function getCoefficient(member: { birth_date: string | null; custom_coefficient: number | null }): number {
+  if (member.custom_coefficient != null) return member.custom_coefficient;
+  return getAgeCoefficient(member.birth_date);
 }
 
 // カテゴリの表示順
@@ -84,10 +91,10 @@ export default function RecipeDetailClient({
     await supabase.from("recipes").update({ is_favorite: newVal }).eq("id", recipe.id);
   };
 
-  // 家族全員の合計係数
+  // 家族全員の合計係数（custom_coefficient優先、なければ年齢から計算）
   const totalCoefficient =
     familyMembers.length > 0
-      ? familyMembers.reduce((sum, m) => sum + getCoefficient(m.birth_date), 0)
+      ? familyMembers.reduce((sum, m) => sum + getCoefficient(m), 0)
       : recipe.servings_base;
 
   // 倍率（家族人数 / レシピ基本人数）
