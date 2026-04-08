@@ -39,7 +39,7 @@ type ParsedRecipe = {
 };
 
 type Step = "input" | "loading" | "preview" | "saving";
-type InputMode = "url" | "manual" | "image";
+type InputMode = "url" | "manual" | "image" | "scratch";
 
 export default function NewRecipePage() {
   const router = useRouter();
@@ -55,6 +55,28 @@ export default function NewRecipePage() {
   const [parsed, setParsed] = useState<ParsedRecipe | null>(null);
   const [aiSuggestedTags, setAiSuggestedTags] = useState<string[]>([]);
   const [error, setError] = useState("");
+
+  // 手動入力モード: 空のレシピで直接編集画面へ
+  const handleStartFromScratch = () => {
+    setParsed({
+      title: "",
+      image_url: null,
+      servings_base: 2,
+      cooking_time_minutes: null,
+      category: null,
+      cuisine: null,
+      notes: null,
+      ingredients: [
+        { group_label: "", name: "", amount: "", unit: "", category: "その他", order_index: 0 },
+      ],
+      steps: [
+        { step_number: 1, step_text: "" },
+      ],
+      tags: [],
+    });
+    setAiSuggestedTags([]);
+    setStep("preview");
+  };
 
   const handleParse = async () => {
     if (inputMode === "url" && !url.trim()) {
@@ -574,6 +596,14 @@ export default function NewRecipePage() {
           >
             ✏️ テキスト
           </button>
+          <button
+            onClick={() => { setInputMode("scratch"); setError(""); }}
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
+              inputMode === "scratch" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"
+            }`}
+          >
+            📝 手動
+          </button>
         </div>
 
         {inputMode === "image" ? (
@@ -670,7 +700,7 @@ export default function NewRecipePage() {
               </p>
             </div>
           </>
-        ) : (
+        ) : inputMode === "manual" ? (
           <>
             <div className="bg-blue-50 rounded-2xl p-4 flex gap-3">
               <span className="text-2xl flex-shrink-0">📋</span>
@@ -698,7 +728,7 @@ export default function NewRecipePage() {
               {error && <p className="text-red-500 text-xs mt-2">{error}</p>}
             </div>
 
-            {inputMode === "manual" && url && (
+            {url && (
               <div className="bg-white rounded-2xl p-4 shadow-sm">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   元レシピURL（任意）
@@ -713,19 +743,41 @@ export default function NewRecipePage() {
               </div>
             )}
           </>
+        ) : (
+          /* scratch（手動入力）モード */
+          <>
+            <div className="bg-green-50 rounded-2xl p-4 flex gap-3">
+              <span className="text-2xl flex-shrink-0">📝</span>
+              <div>
+                <p className="text-sm font-semibold text-green-700 mb-1">手動で入力する</p>
+                <p className="text-xs text-green-600 leading-relaxed">
+                  AI取り込みを使わず、レシピ名・材料・手順をすべて自分で入力できます。
+                </p>
+              </div>
+            </div>
+          </>
         )}
 
-        <button
-          onClick={handleParse}
-          disabled={
-            inputMode === "url" ? !url.trim() :
-            inputMode === "image" ? !imageFile :
-            !manualText.trim()
-          }
-          className="w-full bg-orange-500 disabled:bg-gray-200 disabled:text-gray-400 text-white py-4 rounded-xl font-bold text-base shadow-md active:scale-95 transition-transform"
-        >
-          AIでレシピを取り込む
-        </button>
+        {inputMode === "scratch" ? (
+          <button
+            onClick={handleStartFromScratch}
+            className="w-full bg-green-500 text-white py-4 rounded-xl font-bold text-base shadow-md active:scale-95 transition-transform"
+          >
+            空のレシピを作成する
+          </button>
+        ) : (
+          <button
+            onClick={handleParse}
+            disabled={
+              inputMode === "url" ? !url.trim() :
+              inputMode === "image" ? !imageFile :
+              !manualText.trim()
+            }
+            className="w-full bg-orange-500 disabled:bg-gray-200 disabled:text-gray-400 text-white py-4 rounded-xl font-bold text-base shadow-md active:scale-95 transition-transform"
+          >
+            AIでレシピを取り込む
+          </button>
+        )}
       </div>
     </div>
   );
