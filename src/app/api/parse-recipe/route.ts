@@ -1,7 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { INGREDIENT_CATEGORIES } from "@/lib/ingredientCategories";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+// Supabase client for fetching existing ingredient names
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+// 既存の食材名をDBから取得
+async function fetchExistingIngredientNames(): Promise<string[]> {
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data, error } = await supabase
+      .from("ingredients")
+      .select("name")
+      .limit(1000);
+    if (error || !data) return [];
+    // 重複を除いてソート
+    return [...new Set(data.map((d: { name: string }) => d.name))].sort();
+  } catch {
+    return [];
+  }
+}
+
+// カタカナ → ひらがな変換（正規化用）
+function katakanaToHiragana(str: string): string {
+  return str.replace(/[\u30A1-\u30F6]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) - 0x60)
+  );
+}
+
+// 食材名を既存の名前に正規化する
+function normalizeIngredientName(name: string, existingNames: string[]): string {
+  if (!existingNames.length) return name;
+
+  // 完全一致チェック
+  if (existingNames.includes(name)) return name;
+
+  // ひらがな正規化して比較
+  const nameHira = katakanaToHiragana(name).toLowerCase();
+  for (const existing of existingNames) {
+    if (katakanaToHiragana(existing).toLowerCase() === nameHira) {
+      return existing;
+    }
+  }
+
+  return name;
+}
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -348,7 +394,7 @@ function extractJsonFromGeminiResponse(text: string): { data?: Record<string, un
 }
 
 // Geminiでテキストを解析して構造化レシピを返す
-async function parseWithGemini(content: string): Promise<{ data?: object; error?: string }> {
+async function parseWithGemini(content: string, existingNames: string[] = []): Promise<{ data?: object; error?: string }> {
   if (!GEMINI_API_KEY) {
     return { error: "GEMINI_API_KEY が設定されていません。Vercel環境変数を確認してください。" };
   }
@@ -358,8 +404,18 @@ async function parseWithGemini(content: string): Promise<{ data?: object; error?
     return { error: "テキストが短すぎます。レシピページ全体をコピーして貼り付けてください。" };
   }
 
+  const nameNormalizationInstruction = existingNames.length > 0
+    ? `\n\n【重要】材料名の表記統一ルール:
+以下は既存の登録済み材料名リストです。同じ材料を指す場合は、必ずこのリストの表記に合わせてください。
+例: レシピに「醤油」とあっても、リストに「しょうゆ」があれば「しょうゆ」を使ってください。
+例: 「塩コショウ」→リストに「塩こしょう」があれば「塩こしょう」を使ってください。
+リストにない新しい材料はそのまま記載してください。
+
+登録済み材料名: ${existingNames.join("、")}`
+    : "";
+
   const prompt = `以下のテキストから料理レシピ情報を抽出してください。
-必ず純粋なJSONのみを返してください（説明文や記号は不要）。
+必ず純粋なJSONのみを返してください（説明文や記号は不要）。${nameNormalizationInstruction}
 
 形式:
 {
@@ -400,17 +456,43 @@ ${trimmedContent.slice(0, 30000)}`;
   }
 }
 
+// パース結果の食材名を正規化する共通処理
+function normalizeIngredientsInResult(
+  data: Record<string, unknown>,
+  existingNames: string[]
+): Record<string, unknown> {
+  if (!existingNames.length || !Array.isArray(data.ingredients)) return data;
+  const normalized = (data.ingredients as Array<Record<string, unknown>>).map((ing) => ({
+    ...ing,
+    name: normalizeIngredientName(String(ing.name || ""), existingNames),
+  }));
+  return { ...data, ingredients: normalized };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { url, manualText, imageBase64, mimeType } = await request.json();
+
+    // 既存の食材名を取得（全パスで使用）
+    const existingNames = await fetchExistingIngredientNames();
 
     // 画像入力
     if (imageBase64) {
       if (!GEMINI_API_KEY) {
         return NextResponse.json({ error: "GEMINI_API_KEY が設定されていません。" }, { status: 500 });
       }
+
+      const nameNormalizationInstruction = existingNames.length > 0
+        ? `\n\n【重要】材料名の表記統一ルール:
+以下は既存の登録済み材料名リストです。同じ材料を指す場合は、必ずこのリストの表記に合わせてください。
+例: レシピに「醤油」とあっても、リストに「しょうゆ」があれば「しょうゆ」を使ってください。
+リストにない新しい材料はそのまま記載してください。
+
+登録済み材料名: ${existingNames.join("、")}`
+        : "";
+
       const prompt = `この画像はレシピです。画像から料理レシピ情報を抽出してください。
-必ず純粋なJSONのみを返してください（説明文や記号は不要）。
+必ず純粋なJSONのみを返してください（説明文や記号は不要）。${nameNormalizationInstruction}
 
 形式:
 {
@@ -441,7 +523,9 @@ export async function POST(request: NextRequest) {
         const text = await callGeminiVision(imageBase64, mimeType || "image/jpeg", prompt);
         const result = extractJsonFromGeminiResponse(text);
         if (result.error) return NextResponse.json({ error: result.error }, { status: 500 });
-        return NextResponse.json(result.data);
+        // AIが見逃した表記ブレもコードで正規化
+        const normalized = normalizeIngredientsInResult(result.data!, existingNames);
+        return NextResponse.json(normalized);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         return NextResponse.json({ error: `画像解析エラー: ${msg.slice(0, 200)}` }, { status: 500 });
@@ -450,11 +534,13 @@ export async function POST(request: NextRequest) {
 
     // 手動テキスト入力
     if (manualText) {
-      const result = await parseWithGemini(manualText);
+      const result = await parseWithGemini(manualText, existingNames);
       if (result.error) {
         return NextResponse.json({ error: result.error }, { status: 500 });
       }
-      return NextResponse.json(result.data);
+      // AIが見逃した表記ブレもコードで正規化
+      const normalized = normalizeIngredientsInResult(result.data as Record<string, unknown>, existingNames);
+      return NextResponse.json(normalized);
     }
 
     if (!url) {
@@ -502,18 +588,25 @@ export async function POST(request: NextRequest) {
     // JSON-LD優先（高速）
     const fromJsonLd = extractFromJsonLd(html);
     if (fromJsonLd && fromJsonLd.ingredients.length > 0) {
-      return NextResponse.json(fromJsonLd);
+      // JSON-LDパスでも正規化を適用
+      const normalizedIngredients = fromJsonLd.ingredients.map((ing) => ({
+        ...ing,
+        name: normalizeIngredientName(ing.name, existingNames),
+      }));
+      return NextResponse.json({ ...fromJsonLd, ingredients: normalizedIngredients });
     }
 
     // HTMLをプレーンテキストに変換してからGeminiへ（ノイズ除去）
     const cleanText = htmlToText(html);
-    const result = await parseWithGemini(cleanText);
+    const result = await parseWithGemini(cleanText, existingNames);
     if (result.error) {
       return NextResponse.json({ error: result.error, needsManual: true }, { status: 500 });
     }
+    // AIが見逃した表記ブレもコードで正規化
+    const normalized = normalizeIngredientsInResult(result.data as Record<string, unknown>, existingNames);
     // OGP画像をGemini結果に追加
     const ogImage = extractImageUrl(html);
-    return NextResponse.json({ ...result.data, image_url: ogImage });
+    return NextResponse.json({ ...normalized, image_url: ogImage });
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error("parse-recipe error:", errMsg);

@@ -502,6 +502,16 @@ export default function NewRecipePage() {
                 );
               })}
             </div>
+            <div className="mt-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">メモ</label>
+              <textarea
+                value={parsed.notes || ""}
+                onChange={(e) => setParsed({ ...parsed, notes: e.target.value || null })}
+                placeholder="自由にメモを残せます（例: 子どもが好きな味、次回は塩少なめに、など）"
+                rows={3}
+                className="w-full text-sm text-gray-700 border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-orange-400 resize-none"
+              />
+            </div>
           </div>
 
           {error && (
