@@ -305,6 +305,7 @@ export default function NewRecipePage() {
                   type="number"
                   value={parsed.servings_base || 2}
                   onChange={(e) => setParsed({ ...parsed, servings_base: Number(e.target.value) })}
+                  onFocus={(e) => e.target.select()}
                   className="w-full text-center text-base font-semibold text-gray-700 border border-gray-200 rounded-lg py-1 focus:outline-none focus:border-orange-400"
                 />
                 <p className="text-xs text-gray-400 mt-0.5">人前</p>
@@ -315,6 +316,7 @@ export default function NewRecipePage() {
                   type="number"
                   value={parsed.cooking_time_minutes || ""}
                   onChange={(e) => setParsed({ ...parsed, cooking_time_minutes: e.target.value ? Number(e.target.value) : null })}
+                  onFocus={(e) => e.target.select()}
                   placeholder="--"
                   className="w-full text-center text-base font-semibold text-gray-700 border border-gray-200 rounded-lg py-1 focus:outline-none focus:border-orange-400"
                 />
