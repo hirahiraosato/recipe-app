@@ -1,10 +1,10 @@
 export const RECIPE_TAGS = [
-  { id: "freezable",    label: "冷凍保存OK",     emoji: "🧊" },
-  { id: "microwave",    label: "レンジ使用",      emoji: "📡" },
-  { id: "rice_cooker",  label: "炊飯器使用",      emoji: "🍚" },
-  { id: "baby",         label: "乳児とりわけ可",  emoji: "👶" },
-  { id: "make_ahead",   label: "作り置き",        emoji: "🥡" },
-  { id: "quick",        label: "時短",            emoji: "⚡" },
-  { id: "oven",         label: "オーブン使用",    emoji: "🔥" },
-  { id: "no_heat",      label: "加熱不要",        emoji: "🥗" },
+  { id: "冷凍保存OK",     label: "冷凍保存OK",     emoji: "🧊" },
+  { id: "レンジ使用",     label: "レンジ使用",      emoji: "📡" },
+  { id: "炊飯器使用",     label: "炊飯器使用",      emoji: "🍚" },
+  { id: "乳児とりわけ可", label: "乳児とりわけ可",  emoji: "👶" },
+  { id: "作り置き",       label: "作り置き",        emoji: "🥡" },
+  { id: "時短",           label: "時短",            emoji: "⚡" },
+  { id: "オーブン使用",   label: "オーブン使用",    emoji: "🔥" },
+  { id: "加熱不要",       label: "加熱不要",        emoji: "🥗" },
 ];

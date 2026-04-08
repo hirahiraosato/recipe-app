@@ -236,14 +236,14 @@ function parseIngredientString(str: string): { name: string; amount: number | nu
 function guessTags(text: string): string[] {
   const t = text;
   const tags: string[] = [];
-  if (/冷凍/.test(t)) tags.push("freezable");
-  if (/レンジ|電子レンジ/.test(t)) tags.push("microwave");
-  if (/炊飯器/.test(t)) tags.push("rice_cooker");
-  if (/乳児|赤ちゃん|離乳食|とりわけ/.test(t)) tags.push("baby");
-  if (/作り置き|常備菜/.test(t)) tags.push("make_ahead");
-  if (/時短|簡単|すぐ/.test(t)) tags.push("quick");
-  if (/オーブン/.test(t)) tags.push("oven");
-  if (/加熱不要|火を使わない/.test(t)) tags.push("no_heat");
+  if (/冷凍/.test(t)) tags.push("冷凍保存OK");
+  if (/レンジ|電子レンジ/.test(t)) tags.push("レンジ使用");
+  if (/炊飯器/.test(t)) tags.push("炊飯器使用");
+  if (/乳児|赤ちゃん|離乳食|とりわけ/.test(t)) tags.push("乳児とりわけ可");
+  if (/作り置き|常備菜/.test(t)) tags.push("作り置き");
+  if (/時短|簡単|すぐ/.test(t)) tags.push("時短");
+  if (/オーブン/.test(t)) tags.push("オーブン使用");
+  if (/加熱不要|火を使わない/.test(t)) tags.push("加熱不要");
   return tags;
 }
 
@@ -369,7 +369,7 @@ async function parseWithGemini(content: string): Promise<{ data?: object; error?
   "category": "次の選択肢から最も近いものを選択（一致しなければ null）: 主菜（肉）/主菜（魚）/主菜（卵・豆腐）/副菜/汁物・スープ/ご飯・丼/麺・パスタ/パン・粉もの/サラダ/お菓子・デザート/その他",
   "cuisine": "次の選択肢から最も近いものを選択（一致しなければ null）: 和食/洋食/中華/エスニック/その他",
   "notes": "備考または null",
-  "tags": ["該当するタグIDのみ配列で。選択肢: freezable(冷凍保存OK), microwave(レンジ使用), rice_cooker(炊飯器使用), baby(乳児とりわけ可), make_ahead(作り置き), quick(時短), oven(オーブン使用), no_heat(加熱不要)"],
+  "tags": ["該当するタグのみ配列で。選択肢: 冷凍保存OK, レンジ使用, 炊飯器使用, 乳児とりわけ可, 作り置き, 時短, オーブン使用, 加熱不要"],
   "ingredients": [
     {
       "name": "材料名",
@@ -420,7 +420,7 @@ export async function POST(request: NextRequest) {
   "category": "次の選択肢から最も近いものを選択（一致しなければ null）: 主菜（肉）/主菜（魚）/主菜（卵・豆腐）/副菜/汁物・スープ/ご飯・丼/麺・パスタ/パン・粉もの/サラダ/お菓子・デザート/その他",
   "cuisine": "次の選択肢から最も近いものを選択（一致しなければ null）: 和食/洋食/中華/エスニック/その他",
   "notes": "備考または null",
-  "tags": ["該当するタグIDのみ配列で。選択肢: freezable(冷凍保存OK), microwave(レンジ使用), rice_cooker(炊飯器使用), baby(乳児とりわけ可), make_ahead(作り置き), quick(時短), oven(オーブン使用), no_heat(加熱不要)"],
+  "tags": ["該当するタグのみ配列で。選択肢: 冷凍保存OK, レンジ使用, 炊飯器使用, 乳児とりわけ可, 作り置き, 時短, オーブン使用, 加熱不要"],
   "ingredients": [
     {
       "name": "材料名",
