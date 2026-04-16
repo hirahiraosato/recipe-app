@@ -46,3 +46,14 @@ public/swe-worker-*.js.map
 
 # editor / backup
 *.bak
+
+# Claude Code (desktop) local artifacts
+.claude/worktrees/
+.claude/plans/
+.claude/todos/
+.claude/shell-snapshots/
+.claude/memory/
+.claude/scheduled-tasks/
+.claude/statsig/
+.claude/projects/
+.claude/settings.local.json
