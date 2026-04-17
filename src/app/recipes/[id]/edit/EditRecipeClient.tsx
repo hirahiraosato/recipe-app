@@ -116,6 +116,14 @@ export default function EditRecipeClient({
     setSteps(newSteps);
   };
 
+  const moveStep = (i: number, direction: -1 | 1) => {
+    const j = i + direction;
+    if (j < 0 || j >= steps.length) return;
+    const newSteps = [...steps];
+    [newSteps[i], newSteps[j]] = [newSteps[j], newSteps[i]];
+    setSteps(newSteps.map((s, idx) => ({ ...s, step_number: idx + 1 })));
+  };
+
   const handleSave = async () => {
     if (!title.trim()) { setError("レシピ名を入力してください"); return; }
     setSaving(true);
@@ -419,9 +427,33 @@ export default function EditRecipeClient({
           <div className="space-y-3">
             {steps.map((step, i) => (
               <div key={i} className="flex gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full text-xs font-bold flex items-center justify-center mt-2">
-                  {i + 1}
-                </span>
+                <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => moveStep(i, -1)}
+                    disabled={i === 0}
+                    className="w-6 h-6 rounded border border-gray-200 text-gray-400 hover:text-orange-500 hover:border-orange-300 disabled:opacity-30 disabled:hover:text-gray-400 disabled:hover:border-gray-200 flex items-center justify-center"
+                    aria-label="上へ移動"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
+                    </svg>
+                  </button>
+                  <span className="w-6 h-6 bg-orange-500 text-white rounded-full text-xs font-bold flex items-center justify-center">
+                    {i + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => moveStep(i, 1)}
+                    disabled={i === steps.length - 1}
+                    className="w-6 h-6 rounded border border-gray-200 text-gray-400 hover:text-orange-500 hover:border-orange-300 disabled:opacity-30 disabled:hover:text-gray-400 disabled:hover:border-gray-200 flex items-center justify-center"
+                    aria-label="下へ移動"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
                 <textarea
                   value={step.step_text}
                   onChange={(e) => {
