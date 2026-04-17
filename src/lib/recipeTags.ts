@@ -7,4 +7,6 @@ export const RECIPE_TAGS = [
   { id: "時短",           label: "時短",            emoji: "⚡" },
   { id: "オーブン使用",   label: "オーブン使用",    emoji: "🔥" },
   { id: "加熱不要",       label: "加熱不要",        emoji: "🥗" },
+  { id: "冷凍弁当",       label: "冷凍弁当",        emoji: "🍱" },
+  { id: "離乳食",         label: "離乳食",          emoji: "🍼" },
 ];
