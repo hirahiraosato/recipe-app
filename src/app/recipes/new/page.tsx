@@ -172,7 +172,7 @@ export default function NewRecipePage() {
         user_id: user.id,
         title: parsed.title,
         image_url: imageUrl,
-        source_url: inputMode === "url" ? url : null,
+        source_url: url.trim() || null,
         servings_base: parsed.servings_base || 2,
         cooking_time_minutes: parsed.cooking_time_minutes,
         category: parsed.category,
@@ -298,6 +298,16 @@ export default function NewRecipePage() {
               onChange={(e) => setParsed({ ...parsed, title: e.target.value })}
               className="w-full text-lg font-bold text-gray-800 border-b border-gray-200 pb-2 mb-3 focus:outline-none focus:border-orange-400"
             />
+            <div className="mb-3">
+              <label className="block text-xs font-semibold text-gray-500 mb-1">レシピURL（任意）</label>
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://..."
+                className="w-full text-sm text-gray-700 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-orange-400"
+              />
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="text-center">
                 <p className="text-xs text-gray-400 mb-1">人数</p>

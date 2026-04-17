@@ -72,6 +72,7 @@ export default function EditRecipeClient({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const [title, setTitle] = useState(recipe.title);
+  const [sourceUrl, setSourceUrl] = useState(recipe.source_url || "");
   const [servings, setServings] = useState(recipe.servings_base);
   const [cookingTime, setCookingTime] = useState<number | null>(recipe.cooking_time_minutes);
   const [category, setCategory] = useState(recipe.category || "");
@@ -141,6 +142,7 @@ export default function EditRecipeClient({
       .update({
         title: title.trim(),
         image_url: finalImageUrl,
+        source_url: sourceUrl.trim() || null,
         servings_base: servings,
         cooking_time_minutes: cookingTime,
         category: category || null,
@@ -244,6 +246,16 @@ export default function EditRecipeClient({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full text-base font-bold text-gray-800 border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-orange-400"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">レシピURL（任意）</label>
+            <input
+              type="url"
+              value={sourceUrl}
+              onChange={(e) => setSourceUrl(e.target.value)}
+              placeholder="https://..."
+              className="w-full text-sm text-gray-700 border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-orange-400"
             />
           </div>
           <div className="grid grid-cols-3 gap-3">
